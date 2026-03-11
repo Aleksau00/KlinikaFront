@@ -1,0 +1,56 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install KlinikaFront deps",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"npm.cmd",
+				"install"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Run KlinikaFront",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"npm.cmd",
+				"run",
+				"dev"
+			],
+			"isBackground": true,
+			"group": "build"
+		},
+		{
+			"label": "Build KlinikaFront",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"npm.cmd",
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build KlinikaFront once",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"npm.cmd",
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}
