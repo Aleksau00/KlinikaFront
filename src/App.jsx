@@ -10,12 +10,22 @@ import {
   useParams,
 } from 'react-router-dom';
 import {
+  bookAppointment,
+  cancelAppointment,
+  checkInAppointment,
+  createPatient,
+  fetchDoctorAppointments,
+  fetchDoctors,
+  fetchDoctorAvailableSlots,
+  fetchPatientAppointments,
   createWorker,
   fetchClinics,
   fetchCurrentWorker,
   fetchWorkers,
   getApiBaseUrlLabel,
   loginWorker,
+  markAppointmentNoShow,
+  searchPatients,
   setWorkerActive,
   updateWorker,
 } from './lib/api';
@@ -63,7 +73,7 @@ const roleConfig = {
     sampleEmail: 'jovana.simic@klinika.rs',
     samplePassword: 'Admin123!',
     tasks: ['Handle booking and check-in flows', 'Use secretary-authorized scheduling endpoints', 'Manage front-office patient intake'],
-    sections: ['overview', 'account'],
+    sections: ['overview', 'account', 'desk-scheduling', 'desk-appointments'],
   },
 };
 
@@ -90,6 +100,17 @@ const initialWorkerForm = {
   specialty: '',
   licenseNumber: '',
   qualification: '',
+};
+
+const initialPatientForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phoneNumber: '',
+  jmbg: '',
+  gender: 'F',
+  dateOfBirth: '2000-01-01',
+  bloodType: 'A+',
 };
 
 function readStoredSession() {
@@ -141,6 +162,16 @@ function createSession(loginResponse, worker) {
   };
 }
 
+function isSessionExpired(session) {
+  const exp = session?.tokenPayload?.exp;
+
+  if (!exp) {
+    return false;
+  }
+
+  return Date.now() >= exp * 1000;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -150,8 +181,25 @@ function App() {
 }
 
 function AuthApplication() {
-  const [session, setSession] = useState(() => readStoredSession());
-  const [isRestoringSession, setIsRestoringSession] = useState(() => Boolean(readStoredSession()?.token));
+  const [session, setSession] = useState(() => {
+    const stored = readStoredSession();
+
+    if (stored && isSessionExpired(stored)) {
+      clearStoredSession();
+      return null;
+    }
+
+    return stored;
+  });
+  const [isRestoringSession, setIsRestoringSession] = useState(() => {
+    const stored = readStoredSession();
+
+    if (!stored?.token || isSessionExpired(stored)) {
+      return false;
+    }
+
+    return true;
+  });
 
   useEffect(() => {
     if (!session?.token) {
@@ -485,6 +533,7 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
                 className={({ isActive }) => `portal-nav-link${isActive ? ' is-active' : ''}`}
                 end={item.key === 'overview'}
                 key={item.key}
+                onClick={() => playUiFeedbackSound('tab')}
                 to={item.path}
               >
                 <span>{item.label}</span>
@@ -500,6 +549,8 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
           {section === 'admin-desk' ? <AdminDeskPanel session={session} /> : null}
           {section === 'staff' ? <AdminStaffPanel session={session} /> : null}
           {section === 'clinics' ? <AdminClinicsPanel /> : null}
+          {section === 'desk-scheduling' ? <SecretarySchedulingPanel session={session} /> : null}
+          {section === 'desk-appointments' ? <SecretaryAppointmentsPanel session={session} /> : null}
         </section>
       </section>
     </main>
@@ -548,6 +599,23 @@ function getPortalNav(roleSlug) {
     );
   }
 
+  if (roleSlug === 'secretary') {
+    items.push(
+      {
+        key: 'desk-scheduling',
+        label: 'Desk scheduling',
+        description: 'Doctor slots, patient selection, and booking',
+        path: `${basePath}/desk-scheduling`,
+      },
+      {
+        key: 'desk-appointments',
+        label: 'Desk appointments',
+        description: 'Patient and doctor appointment lookup/actions',
+        path: `${basePath}/desk-appointments`,
+      },
+    );
+  }
+
   return items;
 }
 
@@ -584,6 +652,58 @@ function formatDate(value) {
   }).format(parsed);
 }
 
+const uiAudioState = {
+  context: null,
+};
+
+function playUiFeedbackSound(type = 'success') {
+  try {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextCtor) {
+      return;
+    }
+
+    if (!uiAudioState.context) {
+      uiAudioState.context = new AudioContextCtor();
+    }
+
+    if (uiAudioState.context.state === 'suspended') {
+      uiAudioState.context.resume();
+    }
+
+    const soundProfiles = {
+      created: { frequency: 640, wave: 'triangle', peakGain: 0.034, attack: 0.018, release: 0.145 },
+      edited: { frequency: 600, wave: 'triangle', peakGain: 0.032, attack: 0.018, release: 0.145 },
+      deleted: { frequency: 440, wave: 'sine', peakGain: 0.03, attack: 0.016, release: 0.14 },
+      cancelled: { frequency: 410, wave: 'sine', peakGain: 0.03, attack: 0.016, release: 0.14 },
+      select: { frequency: 720, wave: 'triangle', peakGain: 0.024, attack: 0.014, release: 0.1 },
+      tab: { frequency: 620, wave: 'triangle', peakGain: 0.045, attack: 0.018, release: 0.16 },
+      success: { frequency: 580, wave: 'triangle', peakGain: 0.03, attack: 0.018, release: 0.14 },
+    };
+    const profile = soundProfiles[type] || soundProfiles.success;
+
+    const now = uiAudioState.context.currentTime;
+    const oscillator = uiAudioState.context.createOscillator();
+    const gainNode = uiAudioState.context.createGain();
+
+    oscillator.type = profile.wave;
+    oscillator.frequency.setValueAtTime(profile.frequency, now);
+
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.exponentialRampToValueAtTime(profile.peakGain, now + profile.attack);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + profile.release);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(uiAudioState.context.destination);
+
+    oscillator.start(now);
+    oscillator.stop(now + profile.release + 0.01);
+  } catch {
+    // Audio feedback is optional and should never block UX flows.
+  }
+}
+
 function RoleOverview({ roleSlug, session }) {
   const config = roleConfig[roleSlug];
 
@@ -615,7 +735,7 @@ function RoleOverview({ roleSlug, session }) {
         <p>{content.copy}</p>
       </article>
 
-      <div className="workspace-grid compact-grid">
+      <div className="workspace-grid compact-grid secretary-grid">
         <article className="workspace-panel profile-panel">
           <p className="eyebrow">Identity</p>
           <h2>Signed-in worker</h2>
@@ -635,7 +755,7 @@ function RoleOverview({ roleSlug, session }) {
           </dl>
         </article>
 
-        <article className="workspace-panel">
+        <article className="workspace-panel secretary-card-wide">
           <p className="eyebrow">Current scope</p>
           <h2>{config.label} tasks</h2>
           <ul className="task-list">
@@ -695,7 +815,7 @@ function AccountPanel({ onRefreshSession, roleSlug, session }) {
 
       {statusMessage ? <p className="info-banner">{statusMessage}</p> : null}
 
-      <div className="workspace-grid compact-grid">
+      <div className="workspace-grid compact-grid secretary-grid">
         <article className="workspace-panel profile-panel">
           <p className="eyebrow">Profile</p>
           <h2>Worker details</h2>
@@ -727,7 +847,7 @@ function AccountPanel({ onRefreshSession, roleSlug, session }) {
           </dl>
         </article>
 
-        <article className="workspace-panel">
+        <article className="workspace-panel secretary-card-regular">
           <p className="eyebrow">Role and assignment</p>
           <h2>Access context</h2>
           <dl className="profile-list">
@@ -841,7 +961,7 @@ function AdminDeskPanel({ session }) {
         </p>
       </article>
 
-      <div className="workspace-grid compact-grid">
+      <div className="workspace-grid compact-grid secretary-grid">
         {cards.map((card) => (
           <article className="workspace-panel" key={card.title}>
             <p className="eyebrow">Module</p>
@@ -952,6 +1072,7 @@ function AdminStaffPanel({ session }) {
       setWorkers(freshWorkers);
       setFormState(initialWorkerForm);
       setStatusMessage(`Worker created successfully with id ${response.workerId}.`);
+      playUiFeedbackSound('created');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to create worker.');
     } finally {
@@ -1018,6 +1139,7 @@ function AdminStaffPanel({ session }) {
       setWorkers(freshWorkers);
       setEditingWorker(null);
       setStatusMessage(`Worker #${editingWorker.id} updated successfully.`);
+      playUiFeedbackSound('edited');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to update worker.');
     } finally {
@@ -1038,6 +1160,7 @@ function AdminStaffPanel({ session }) {
       setWorkers(freshWorkers);
       setConfirmDeleteId(null);
       setStatusMessage(`Worker #${workerId} ${nextActive ? 'activated' : 'deactivated'} successfully.`);
+      playUiFeedbackSound(nextActive ? 'edited' : 'deleted');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to update worker status.');
     } finally {
@@ -1067,7 +1190,7 @@ function AdminStaffPanel({ session }) {
       {errorMessage ? <p className="error-banner wide-banner">{errorMessage}</p> : null}
 
       {showForm ? (
-        <article className="workspace-panel">
+        <article className="workspace-panel secretary-card-regular">
           <p className="eyebrow">Create worker</p>
           <h2>Provision a new account</h2>
           <form className="admin-form" onSubmit={handleSubmit}>
@@ -1165,7 +1288,7 @@ function AdminStaffPanel({ session }) {
       ) : null}
 
       {editingWorker ? (
-        <article className="workspace-panel">
+        <article className="workspace-panel secretary-card-wide">
           <div className="panel-heading-row">
             <div>
               <p className="eyebrow">Edit worker</p>
@@ -1309,6 +1432,894 @@ function AdminStaffPanel({ session }) {
           </div>
         ) : null}
       </article>
+    </div>
+  );
+}
+
+function formatDateForInput(value) {
+  return value.toISOString().split('T')[0];
+}
+
+function isScheduledStatus(status) {
+  return status === 0 || status === 'Scheduled';
+}
+
+function isInProgressStatus(status) {
+  return status === 1 || status === 'InProgress';
+}
+
+function formatAppointmentStatus(status) {
+  const statusMap = {
+    0: 'Scheduled',
+    1: 'In Progress',
+    2: 'Completed',
+    3: 'Cancelled',
+    4: 'No-show',
+    'Scheduled': 'Scheduled',
+    'InProgress': 'In Progress',
+    'Completed': 'Completed',
+    'Cancelled': 'Cancelled',
+    'NoShow': 'No-show',
+  };
+  
+  return statusMap[status] || String(status);
+}
+
+function canCancelAppointment(scheduledDate, scheduledStartTime) {
+  try {
+    // Parse the appointment datetime
+    const appointmentDateTime = new Date(`${scheduledDate}T${scheduledStartTime}`);
+    const now = new Date();
+    const hoursUntilAppointment = (appointmentDateTime - now) / (1000 * 60 * 60);
+    
+    // Can only cancel if more than 48 hours away
+    return hoursUntilAppointment > 48;
+  } catch {
+    // If parsing fails, allow cancellation (frontend validation failed)
+    return true;
+  }
+}
+
+function AppointmentLifecycleList({ appointments, actionAppointmentId, onCheckIn, onCancel, onNoShow }) {
+  return (
+    <div className="data-list data-list-scroll">
+      {appointments.map((appointment) => (
+        <article className="data-row" key={appointment.id}>
+          <div>
+            <strong>{appointment.scheduledDate} {String(appointment.scheduledStartTime).slice(0, 5)}</strong>
+            <p>Patient: {appointment.patientName || 'Unknown patient'}</p>
+            <p>{appointment.doctorName} · {appointment.appointmentType}</p>
+          </div>
+          <div className="data-meta">
+            <span>Appointment #{appointment.id}</span>
+            <span>Status: {formatAppointmentStatus(appointment.status)}</span>
+            <small>Booked by: {appointment.bookedByWorkerName || 'N/A'}</small>
+            <small>Clinic: {appointment.clinicName}</small>
+          </div>
+          <div className="row-actions">
+            {isScheduledStatus(appointment.status) ? (
+              <button className="ghost-button" disabled={actionAppointmentId === appointment.id} onClick={() => onCheckIn(appointment.id)} type="button">
+                Check in
+              </button>
+            ) : null}
+            {isScheduledStatus(appointment.status) && canCancelAppointment(appointment.scheduledDate, appointment.scheduledStartTime) ? (
+              <button className="danger-button-outline" disabled={actionAppointmentId === appointment.id} onClick={() => onCancel(appointment.id)} type="button">
+                Cancel
+              </button>
+            ) : null}
+            {isScheduledStatus(appointment.status) || isInProgressStatus(appointment.status) ? (
+              <button className="danger-button-outline" disabled={actionAppointmentId === appointment.id} onClick={() => onNoShow(appointment.id)} type="button">
+                No-show
+              </button>
+            ) : null}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function CancelAppointmentDialog({ reason, isSubmitting, onReasonChange, onConfirm, onClose }) {
+  return (
+    <div className="dialog-overlay" role="presentation">
+      <div aria-modal="true" className="dialog-card" role="dialog">
+        <p className="eyebrow">Cancel appointment</p>
+        <h3 className="dialog-title">Provide cancellation reason</h3>
+        <p className="dialog-copy">This reason will be saved with the cancellation.</p>
+
+        <label className="dialog-label">
+          <span>Reason</span>
+          <textarea
+            onChange={(event) => onReasonChange(event.target.value)}
+            placeholder="Enter cancellation reason"
+            rows={3}
+            value={reason}
+          />
+        </label>
+
+        <div className="row-actions dialog-actions">
+          <button className="ghost-button" disabled={isSubmitting} onClick={onClose} type="button">
+            Close
+          </button>
+          <button className="danger-button" disabled={isSubmitting || !reason.trim()} onClick={onConfirm} type="button">
+            {isSubmitting ? 'Cancelling...' : 'Confirm cancel'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SecretarySchedulingPanel({ session }) {
+  const [doctors, setDoctors] = useState([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [fromDate, setFromDate] = useState(formatDateForInput(new Date()));
+  const [toDate, setToDate] = useState(formatDateForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
+  const [slots, setSlots] = useState([]);
+  const [selectedSlotId, setSelectedSlotId] = useState(null);
+
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [showCreatePatient, setShowCreatePatient] = useState(false);
+  const [patientFormState, setPatientFormState] = useState(initialPatientForm);
+
+  const [appointmentType, setAppointmentType] = useState('0');
+
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [isSearchingPatients, setIsSearchingPatients] = useState(false);
+  const [isCreatingPatient, setIsCreatingPatient] = useState(false);
+  const [isBookingAppointment, setIsBookingAppointment] = useState(false);
+
+  const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadDoctors() {
+      setIsLoadingDoctors(true);
+      setErrorMessage('');
+
+      try {
+        const response = await fetchDoctors(session.token, session.worker?.clinicId || undefined);
+
+        if (!ignore) {
+          setDoctors(response);
+
+          if (response.length > 0) {
+            setSelectedDoctorId(String(response[0].id));
+          }
+        }
+      } catch (error) {
+        if (!ignore) {
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to load doctors.');
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingDoctors(false);
+        }
+      }
+    }
+
+    loadDoctors();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session.token, session.worker?.clinicId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadSlots() {
+      if (!selectedDoctorId) {
+        setSlots([]);
+        return;
+      }
+
+      setIsLoadingSlots(true);
+      setErrorMessage('');
+
+      try {
+        const response = await fetchDoctorAvailableSlots(session.token, selectedDoctorId, fromDate, toDate);
+
+        if (!ignore) {
+          setSlots(response);
+          setSelectedSlotId((current) => {
+            if (!current) {
+              return response[0]?.id || null;
+            }
+
+            return response.some((slot) => slot.id === current) ? current : response[0]?.id || null;
+          });
+        }
+      } catch (error) {
+        if (!ignore) {
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to load available slots.');
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingSlots(false);
+        }
+      }
+    }
+
+    loadSlots();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session.token, selectedDoctorId, fromDate, toDate]);
+
+  async function handleSearchPatients(event) {
+    event.preventDefault();
+    setIsSearchingPatients(true);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    try {
+      const response = await searchPatients(session.token, patientSearchTerm.trim());
+      setPatients(response);
+
+      if (response.length === 0) {
+        setSelectedPatient(null);
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to search patients.');
+    } finally {
+      setIsSearchingPatients(false);
+    }
+  }
+
+  async function handleSelectPatient(patient) {
+    setSelectedPatient(patient);
+    setErrorMessage('');
+    setStatusMessage('');
+    playUiFeedbackSound('select');
+  }
+
+  function updatePatientFormField(field, value) {
+    setPatientFormState((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function handleCreatePatient(event) {
+    event.preventDefault();
+    setIsCreatingPatient(true);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    const payload = {
+      firstName: patientFormState.firstName,
+      lastName: patientFormState.lastName,
+      email: patientFormState.email || null,
+      phoneNumber: patientFormState.phoneNumber,
+      jmbg: patientFormState.jmbg,
+      gender: patientFormState.gender,
+      dateOfBirth: patientFormState.dateOfBirth,
+      bloodType: patientFormState.bloodType,
+      guardianId: null,
+      addressId: null,
+    };
+
+    try {
+      const created = await createPatient(session.token, payload);
+      setStatusMessage(`Patient ${created.firstName} ${created.lastName} created.`);
+      playUiFeedbackSound('created');
+      setPatientFormState(initialPatientForm);
+      setShowCreatePatient(false);
+
+      const refreshedPatients = await searchPatients(session.token, created.jmbg);
+      setPatients(refreshedPatients);
+
+      const createdFromList = refreshedPatients.find((p) => p.id === created.id) || created;
+      setSelectedPatient(createdFromList);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to create patient.');
+    } finally {
+      setIsCreatingPatient(false);
+    }
+  }
+
+  async function handleBookAppointment() {
+    if (!selectedPatient?.id || !selectedSlotId) {
+      setErrorMessage('Select both a patient and an available slot before booking.');
+      return;
+    }
+
+    setIsBookingAppointment(true);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    const payload = {
+      appointmentSlotId: selectedSlotId,
+      patientId: selectedPatient.id,
+      appointmentType: Number(appointmentType),
+    };
+
+    try {
+      await bookAppointment(session.token, payload);
+      setStatusMessage('Appointment booked successfully.');
+      playUiFeedbackSound('created');
+      const freshSlots = await fetchDoctorAvailableSlots(session.token, selectedDoctorId, fromDate, toDate);
+      setSlots(freshSlots);
+      setSelectedSlotId(freshSlots[0]?.id || null);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to book appointment.');
+    } finally {
+      setIsBookingAppointment(false);
+    }
+  }
+
+  return (
+    <div className="portal-stack">
+      <article className="workspace-panel theme-secretary">
+        <div className="panel-heading-row">
+          <div>
+            <p className="eyebrow">Front desk</p>
+            <h2>Secretary scheduling and intake</h2>
+          </div>
+          <span className="status-chip">{doctors.length} doctors</span>
+        </div>
+        <p>Use this panel to find patients, create new patient records, pick doctor slots, and execute booking/check-in/cancel/no-show workflows.</p>
+      </article>
+
+      {statusMessage ? <p className="info-banner">{statusMessage}</p> : null}
+      {errorMessage ? <p className="error-banner wide-banner">{errorMessage}</p> : null}
+
+      <div className="secretary-grid secretary-desk-stack compact-grid">
+        <article className="workspace-panel secretary-card-wide">
+          <p className="eyebrow">Doctors and slots</p>
+          <h2>Available appointment slots</h2>
+
+          {isLoadingDoctors ? <p>Loading doctors...</p> : null}
+
+          {!isLoadingDoctors ? (
+            <div className="admin-form">
+              <div className="form-grid">
+                <label>
+                  <span>Doctor</span>
+                  <select
+                    onChange={(event) => {
+                      setSelectedDoctorId(event.target.value);
+                      playUiFeedbackSound('select');
+                    }}
+                    value={selectedDoctorId}
+                  >
+                    <option value="">Select doctor</option>
+                    {doctors.map((doctor) => (
+                      <option key={doctor.id} value={doctor.id}>
+                        {doctor.firstName} {doctor.lastName} ({doctor.specialty || 'General'})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>From date</span>
+                  <input onChange={(event) => setFromDate(event.target.value)} type="date" value={fromDate} />
+                </label>
+                <label>
+                  <span>To date</span>
+                  <input onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} />
+                </label>
+              </div>
+
+              {isLoadingSlots ? <p>Loading slots...</p> : null}
+              {!isLoadingSlots && slots.length === 0 ? (
+                <p className="muted-hint">No available slots found for this doctor in the selected date range. Try extending the To date.</p>
+              ) : null}
+              {!isLoadingSlots && slots.length > 0 ? (
+                <div className="data-list data-list-scroll">
+                  {slots.map((slot) => (
+                    <article className={`data-row${selectedSlotId === slot.id ? ' data-row-selected' : ''}`} key={slot.id}>
+                      <div>
+                        <strong>{slot.doctorName}</strong>
+                        <p>{slot.date} {String(slot.startTime).slice(0, 5)} – {String(slot.endTime).slice(0, 5)}</p>
+                      </div>
+                      <div className="row-actions">
+                        <button
+                          className={selectedSlotId === slot.id ? 'primary-button' : 'ghost-button'}
+                          onClick={() => {
+                            setSelectedSlotId(slot.id);
+                            playUiFeedbackSound('select');
+                          }}
+                          type="button"
+                        >
+                          {selectedSlotId === slot.id ? 'Selected ✓' : 'Select'}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </article>
+
+        <article className="workspace-panel secretary-card-regular" style={{alignSelf: 'start'}}>
+          <div className="panel-heading-row">
+            <div>
+              <p className="eyebrow">Patients</p>
+              <h2>Find or create patient</h2>
+            </div>
+            <button className="ghost-button" onClick={() => setShowCreatePatient((current) => !current)} type="button">
+              {showCreatePatient ? 'Close form' : 'New patient'}
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSearchPatients}>
+            <label>
+              <span>Search term</span>
+              <input
+                onChange={(event) => setPatientSearchTerm(event.target.value)}
+                placeholder="Name, email, phone, or JMBG"
+                type="text"
+                value={patientSearchTerm}
+              />
+            </label>
+            <button className="primary-button" disabled={isSearchingPatients} type="submit">
+              {isSearchingPatients ? 'Searching...' : 'Search patients'}
+            </button>
+          </form>
+
+          {showCreatePatient ? (
+            <form className="admin-form" onSubmit={handleCreatePatient}>
+              <div className="form-grid">
+                <label>
+                  <span>First name</span>
+                  <input onChange={(event) => updatePatientFormField('firstName', event.target.value)} required type="text" value={patientFormState.firstName} />
+                </label>
+                <label>
+                  <span>Last name</span>
+                  <input onChange={(event) => updatePatientFormField('lastName', event.target.value)} required type="text" value={patientFormState.lastName} />
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input onChange={(event) => updatePatientFormField('email', event.target.value)} type="email" value={patientFormState.email} />
+                </label>
+                <label>
+                  <span>Phone number</span>
+                  <input onChange={(event) => updatePatientFormField('phoneNumber', event.target.value)} required type="text" value={patientFormState.phoneNumber} />
+                </label>
+                <label>
+                  <span>JMBG</span>
+                  <input onChange={(event) => updatePatientFormField('jmbg', event.target.value)} required type="text" value={patientFormState.jmbg} />
+                </label>
+                <label>
+                  <span>Gender</span>
+                  <select onChange={(event) => updatePatientFormField('gender', event.target.value)} value={patientFormState.gender}>
+                    <option value="F">F</option>
+                    <option value="M">M</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Date of birth</span>
+                  <input onChange={(event) => updatePatientFormField('dateOfBirth', event.target.value)} required type="date" value={patientFormState.dateOfBirth} />
+                </label>
+                <label>
+                  <span>Blood type</span>
+                  <input onChange={(event) => updatePatientFormField('bloodType', event.target.value)} required type="text" value={patientFormState.bloodType} />
+                </label>
+              </div>
+              <button className="primary-button" disabled={isCreatingPatient} type="submit">
+                {isCreatingPatient ? 'Creating patient...' : 'Create patient'}
+              </button>
+            </form>
+          ) : null}
+
+          <div className="data-list data-list-scroll">
+            {patients.map((patient) => (
+              <article className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`} key={patient.id}>
+                <div>
+                  <strong>{patient.firstName} {patient.lastName}</strong>
+                  <p>{patient.email || patient.phoneNumber}</p>
+                </div>
+                <div className="data-meta">
+                  <span>JMBG {patient.jmbg}</span>
+                  <small>No-show count: {patient.noShowCount}</small>
+                </div>
+                <div className="row-actions">
+                  <button className={selectedPatient?.id === patient.id ? 'primary-button' : 'ghost-button'} onClick={() => handleSelectPatient(patient)} type="button">
+                    {selectedPatient?.id === patient.id ? 'Selected' : 'Select'}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </article>
+
+        <article className="workspace-panel secretary-card-regular" style={{alignSelf: 'start'}}>
+          <p className="eyebrow">Booking</p>
+          <h2>Create appointment</h2>
+          <p>
+            Selected patient: {selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : 'None'}
+          </p>
+          <p>
+            Selected slot: {selectedSlotId ? `#${selectedSlotId}` : 'None'}
+          </p>
+
+          <div className="admin-form">
+            <label>
+              <span>Appointment type</span>
+              <select onChange={(event) => setAppointmentType(event.target.value)} value={appointmentType}>
+                <option value="0">Preventive</option>
+                <option value="1">Treatment</option>
+              </select>
+            </label>
+
+            <button className="primary-button" disabled={isBookingAppointment} onClick={handleBookAppointment} type="button">
+              {isBookingAppointment ? 'Booking...' : 'Book appointment'}
+            </button>
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+}
+
+function SecretaryAppointmentsPanel({ session }) {
+  const [patients, setPatients] = useState([]);
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [patientAppointments, setPatientAppointments] = useState([]);
+
+  const [doctors, setDoctors] = useState([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [fromDate, setFromDate] = useState(formatDateForInput(new Date()));
+  const [toDate, setToDate] = useState(formatDateForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
+  const [doctorAppointments, setDoctorAppointments] = useState([]);
+
+  const [isSearchingPatients, setIsSearchingPatients] = useState(false);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+  const [isLoadingDoctorAppointments, setIsLoadingDoctorAppointments] = useState(false);
+  const [actionAppointmentId, setActionAppointmentId] = useState(null);
+  const [cancelTargetAppointmentId, setCancelTargetAppointmentId] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+
+  const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadDoctors() {
+      setIsLoadingDoctors(true);
+      setErrorMessage('');
+
+      try {
+        const response = await fetchDoctors(session.token, session.worker?.clinicId || undefined);
+
+        if (!ignore) {
+          setDoctors(response);
+          setSelectedDoctorId(response[0] ? String(response[0].id) : '');
+        }
+      } catch (error) {
+        if (!ignore) {
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to load doctors.');
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingDoctors(false);
+        }
+      }
+    }
+
+    loadDoctors();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session.token, session.worker?.clinicId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadDoctorAppointments() {
+      if (!selectedDoctorId) {
+        setDoctorAppointments([]);
+        return;
+      }
+
+      setIsLoadingDoctorAppointments(true);
+
+      try {
+        const response = await fetchDoctorAppointments(session.token, selectedDoctorId, fromDate, toDate);
+        if (!ignore) {
+          setDoctorAppointments(response);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to load doctor appointments.');
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingDoctorAppointments(false);
+        }
+      }
+    }
+
+    loadDoctorAppointments();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session.token, selectedDoctorId, fromDate, toDate]);
+
+  async function refreshPatientAppointments(patientId) {
+    const response = await fetchPatientAppointments(session.token, patientId);
+    setPatientAppointments(response);
+  }
+
+  async function refreshDoctorAppointments() {
+    if (!selectedDoctorId) {
+      setDoctorAppointments([]);
+      return;
+    }
+
+    const response = await fetchDoctorAppointments(session.token, selectedDoctorId, fromDate, toDate);
+    setDoctorAppointments(response);
+  }
+
+  async function handleSearchPatients(event) {
+    event.preventDefault();
+    setIsSearchingPatients(true);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    try {
+      const response = await searchPatients(session.token, patientSearchTerm.trim());
+      setPatients(response);
+
+      if (response.length === 0) {
+        setSelectedPatient(null);
+        setPatientAppointments([]);
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to search patients.');
+    } finally {
+      setIsSearchingPatients(false);
+    }
+  }
+
+  async function handleSelectPatient(patient) {
+    setSelectedPatient(patient);
+    setErrorMessage('');
+    setStatusMessage('');
+    playUiFeedbackSound('select');
+
+    try {
+      await refreshPatientAppointments(patient.id);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to load patient appointments.');
+    }
+  }
+
+  async function handleCheckIn(appointmentId) {
+    setActionAppointmentId(appointmentId);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    try {
+      await checkInAppointment(session.token, appointmentId);
+      setStatusMessage(`Appointment #${appointmentId} checked in.`);
+      playUiFeedbackSound('edited');
+
+      if (selectedPatient?.id) {
+        await refreshPatientAppointments(selectedPatient.id);
+      }
+      await refreshDoctorAppointments();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to check in appointment.');
+    } finally {
+      setActionAppointmentId(null);
+    }
+  }
+
+  function handleCancel(appointmentId) {
+    setCancelTargetAppointmentId(appointmentId);
+    setCancelReason('');
+    setErrorMessage('');
+    setStatusMessage('');
+  }
+
+  function closeCancelDialog() {
+    if (actionAppointmentId) {
+      return;
+    }
+
+    setCancelTargetAppointmentId(null);
+    setCancelReason('');
+  }
+
+  async function handleConfirmCancel() {
+    if (!cancelTargetAppointmentId) {
+      return;
+    }
+
+    const normalizedReason = cancelReason.trim();
+
+    if (!normalizedReason) {
+      setErrorMessage('Cancellation reason is required.');
+      return;
+    }
+
+    setActionAppointmentId(cancelTargetAppointmentId);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    try {
+      await cancelAppointment(session.token, cancelTargetAppointmentId, normalizedReason);
+      setStatusMessage(`Appointment #${cancelTargetAppointmentId} cancelled.`);
+      playUiFeedbackSound('cancelled');
+      setCancelTargetAppointmentId(null);
+      setCancelReason('');
+
+      if (selectedPatient?.id) {
+        await refreshPatientAppointments(selectedPatient.id);
+      }
+      await refreshDoctorAppointments();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to cancel appointment.');
+    } finally {
+      setActionAppointmentId(null);
+    }
+  }
+
+  async function handleNoShow(appointmentId) {
+    setActionAppointmentId(appointmentId);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    try {
+      await markAppointmentNoShow(session.token, appointmentId);
+      setStatusMessage(`Appointment #${appointmentId} marked as no-show.`);
+      playUiFeedbackSound('edited');
+
+      if (selectedPatient?.id) {
+        await refreshPatientAppointments(selectedPatient.id);
+      }
+      await refreshDoctorAppointments();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to mark no-show.');
+    } finally {
+      setActionAppointmentId(null);
+    }
+  }
+
+  return (
+    <div className="portal-stack">
+      <article className="workspace-panel theme-secretary">
+        <div className="panel-heading-row">
+          <div>
+            <p className="eyebrow">Desk appointments</p>
+            <h2>Appointment lookup and lifecycle</h2>
+          </div>
+          <span className="status-chip">{doctors.length} doctors</span>
+        </div>
+        <p>Search patients to manage their appointments, and inspect doctor schedules with the same lifecycle action controls.</p>
+      </article>
+
+      {statusMessage ? <p className="info-banner">{statusMessage}</p> : null}
+      {errorMessage ? <p className="error-banner wide-banner">{errorMessage}</p> : null}
+
+      <div className="secretary-grid secretary-desk-stack compact-grid">
+        <article className="workspace-panel secretary-card-wide">
+          <div className="panel-heading-row">
+            <div>
+              <p className="eyebrow">Patient lookup</p>
+              <h2>Find patient appointments</h2>
+            </div>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSearchPatients}>
+            <label>
+              <span>Search term</span>
+              <input
+                onChange={(event) => setPatientSearchTerm(event.target.value)}
+                placeholder="Name, email, phone, or JMBG"
+                type="text"
+                value={patientSearchTerm}
+              />
+            </label>
+            <button className="primary-button" disabled={isSearchingPatients} type="submit">
+              {isSearchingPatients ? 'Searching...' : 'Search patients'}
+            </button>
+          </form>
+
+          <div className="data-list data-list-scroll">
+            {patients.map((patient) => (
+              <article className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`} key={patient.id}>
+                <div>
+                  <strong>{patient.firstName} {patient.lastName}</strong>
+                  <p>{patient.email || patient.phoneNumber}</p>
+                </div>
+                <div className="data-meta">
+                  <span>JMBG {patient.jmbg}</span>
+                  <small>No-show count: {patient.noShowCount}</small>
+                </div>
+                <div className="row-actions">
+                  <button className={selectedPatient?.id === patient.id ? 'primary-button' : 'ghost-button'} onClick={() => handleSelectPatient(patient)} type="button">
+                    {selectedPatient?.id === patient.id ? 'Selected' : 'Select'}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <h3 className="subheading">Selected patient appointments</h3>
+          <AppointmentLifecycleList
+            actionAppointmentId={actionAppointmentId}
+            appointments={patientAppointments}
+            onCancel={handleCancel}
+            onCheckIn={handleCheckIn}
+            onNoShow={handleNoShow}
+          />
+        </article>
+
+        <article className="workspace-panel secretary-card-wide">
+          <p className="eyebrow">Doctor lookup</p>
+          <h2>Doctor appointment schedule</h2>
+
+          {isLoadingDoctors ? <p>Loading doctors...</p> : null}
+
+          {!isLoadingDoctors ? (
+            <div className="admin-form">
+              <div className="form-grid">
+                <label>
+                  <span>Doctor</span>
+                  <select
+                    onChange={(event) => {
+                      setSelectedDoctorId(event.target.value);
+                      playUiFeedbackSound('select');
+                    }}
+                    value={selectedDoctorId}
+                  >
+                    <option value="">Select doctor</option>
+                    {doctors.map((doctor) => (
+                      <option key={doctor.id} value={doctor.id}>
+                        {doctor.firstName} {doctor.lastName} ({doctor.specialty || 'General'})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>From date</span>
+                  <input onChange={(event) => setFromDate(event.target.value)} type="date" value={fromDate} />
+                </label>
+                <label>
+                  <span>To date</span>
+                  <input onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} />
+                </label>
+              </div>
+            </div>
+          ) : null}
+
+          {isLoadingDoctorAppointments ? <p>Loading doctor appointments...</p> : null}
+          {!isLoadingDoctorAppointments ? (
+            <AppointmentLifecycleList
+              actionAppointmentId={actionAppointmentId}
+              appointments={doctorAppointments}
+              onCancel={handleCancel}
+              onCheckIn={handleCheckIn}
+              onNoShow={handleNoShow}
+            />
+          ) : null}
+        </article>
+      </div>
+
+      {cancelTargetAppointmentId ? (
+        <CancelAppointmentDialog
+          isSubmitting={actionAppointmentId === cancelTargetAppointmentId}
+          onClose={closeCancelDialog}
+          onConfirm={handleConfirmCancel}
+          onReasonChange={setCancelReason}
+          reason={cancelReason}
+        />
+      ) : null}
     </div>
   );
 }
