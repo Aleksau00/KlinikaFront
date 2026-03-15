@@ -422,6 +422,11 @@ input {
 
 .compact-grid {
   margin-top: 0;
+  align-items: stretch;
+}
+
+.compact-grid > .workspace-panel {
+  height: 100%;
 }
 
 .doctor-actions-grid {
@@ -549,6 +554,23 @@ input {
   gap: 12px;
 }
 
+.mode-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mode-toggle .ghost-button {
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.mode-toggle .ghost-button.is-active {
+  background: #1d2433;
+  color: #fffaf1;
+  border-color: #1d2433;
+}
+
 .data-list-scroll {
   max-height: 440px;
   overflow-y: auto;
@@ -573,6 +595,43 @@ input {
 .admin-form label {
   display: grid;
   gap: 8px;
+}
+
+.checkbox-card-field {
+  grid-column: 1 / 2;
+  display: grid !important;
+  gap: 10px;
+  align-content: start;
+  justify-self: start;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(29, 36, 51, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.checkbox-card-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+}
+
+.checkbox-card-control input[type='checkbox'] {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: #0f5a66;
+}
+
+.checkbox-card-field strong {
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.checkbox-card-field small {
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .admin-form span {

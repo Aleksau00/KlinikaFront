@@ -1,4 +1,5 @@
 import { canCancelAppointment, formatAppointmentStatus, isInProgressStatus, isScheduledStatus } from '../../lib/appointments';
+import { formatAppointmentReference } from '../../lib/display';
 
 function AppointmentLifecycleList({ appointments, actionAppointmentId, onCheckIn, onCancel, onNoShow }) {
   return (
@@ -11,7 +12,7 @@ function AppointmentLifecycleList({ appointments, actionAppointmentId, onCheckIn
             <p>{appointment.doctorName} · {appointment.appointmentType}</p>
           </div>
           <div className="data-meta">
-            <span>Appointment #{appointment.id}</span>
+            <span>{formatAppointmentReference(appointment)}</span>
             <span>Status: {formatAppointmentStatus(appointment.status)}</span>
             <small>Booked by: {appointment.bookedByWorkerName || 'N/A'}</small>
             <small>Clinic: {appointment.clinicName}</small>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { roleConfig } from '../../config/roles';
+import { formatGenderLabel } from '../../lib/display';
 
 function formatDate(value) {
   if (!value) return 'Unavailable';
@@ -82,7 +83,7 @@ function AccountPanel({ onRefreshSession, roleSlug, session }) {
             </div>
             <div>
               <dt>Gender</dt>
-              <dd>{session.worker?.gender || 'Unavailable'}</dd>
+              <dd>{formatGenderLabel(session.worker?.gender)}</dd>
             </div>
             <div>
               <dt>Date of birth</dt>
@@ -100,20 +101,12 @@ function AccountPanel({ onRefreshSession, roleSlug, session }) {
               <dd>{session.role}</dd>
             </div>
             <div>
-              <dt>Worker ID</dt>
-              <dd>{session.worker?.id || 'Unavailable'}</dd>
-            </div>
-            <div>
               <dt>Clinic</dt>
               <dd>{session.worker?.clinicName || 'No clinic assigned'}</dd>
             </div>
             <div>
-              <dt>Clinic ID</dt>
-              <dd>{session.worker?.clinicId || 'Unavailable'}</dd>
-            </div>
-            <div>
-              <dt>Address ID</dt>
-              <dd>{session.worker?.addressId || 'Unavailable'}</dd>
+              <dt>Role details</dt>
+              <dd>{getRoleSpecificSummary(session.worker)}</dd>
             </div>
             <div>
               <dt>Active</dt>

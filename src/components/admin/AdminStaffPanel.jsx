@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createWorker, fetchClinics, fetchWorkers, setWorkerActive, updateWorker } from '../../lib/api';
 import { initialWorkerForm, workerRoleOptions } from '../../config/roles';
+import { formatGenderLabel } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 
 function AdminStaffPanel({ session }) {
@@ -86,10 +87,11 @@ function AdminStaffPanel({ session }) {
     try {
       const response = await createWorker(session.token, payload);
       const freshWorkers = await fetchWorkers(session.token);
+      const createdWorker = freshWorkers.find((worker) => worker.id === response.workerId);
 
       setWorkers(freshWorkers);
       setFormState(initialWorkerForm);
-      setStatusMessage(`Worker created successfully with id ${response.workerId}.`);
+      setStatusMessage(createdWorker ? `${createdWorker.firstName} ${createdWorker.lastName} created successfully.` : 'Worker created successfully.');
       playUiFeedbackSound('created');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to create worker.');
@@ -156,7 +158,7 @@ function AdminStaffPanel({ session }) {
       const freshWorkers = await fetchWorkers(session.token);
       setWorkers(freshWorkers);
       setEditingWorker(null);
-      setStatusMessage(`Worker #${editingWorker.id} updated successfully.`);
+      setStatusMessage(`${editingWorker.firstName} ${editingWorker.lastName} updated successfully.`);
       playUiFeedbackSound('edited');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to update worker.');
@@ -177,7 +179,7 @@ function AdminStaffPanel({ session }) {
       const freshWorkers = await fetchWorkers(session.token);
       setWorkers(freshWorkers);
       setConfirmDeleteId(null);
-      setStatusMessage(`Worker #${workerId} ${nextActive ? 'activated' : 'deactivated'} successfully.`);
+      setStatusMessage(target ? `${target.firstName} ${target.lastName} ${nextActive ? 'activated' : 'deactivated'} successfully.` : `Worker ${nextActive ? 'activated' : 'deactivated'} successfully.`);
       playUiFeedbackSound(nextActive ? 'edited' : 'deleted');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to update worker status.');
@@ -236,8 +238,8 @@ function AdminStaffPanel({ session }) {
               <label>
                 <span>Gender</span>
                 <select onChange={(event) => updateField('gender', event.target.value)} value={formState.gender}>
-                  <option value="F">F</option>
-                  <option value="M">M</option>
+                  <option value="F">{formatGenderLabel('F')}</option>
+                  <option value="M">{formatGenderLabel('M')}</option>
                 </select>
               </label>
               <label>
@@ -341,8 +343,8 @@ function AdminStaffPanel({ session }) {
               <label>
                 <span>Gender</span>
                 <select onChange={(event) => updateEditField('gender', event.target.value)} value={editFormState.gender}>
-                  <option value="F">F</option>
-                  <option value="M">M</option>
+                  <option value="F">{formatGenderLabel('F')}</option>
+                  <option value="M">{formatGenderLabel('M')}</option>
                 </select>
               </label>
               <label>

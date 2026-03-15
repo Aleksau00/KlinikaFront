@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { bookAppointment, createPatient, fetchDoctorAvailableSlots, fetchDoctors, searchPatients } from '../../lib/api';
 import { initialPatientForm } from '../../config/roles';
 import { formatDateForInput } from '../../lib/appointments';
+import { formatSlotReference } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 
 function SecretarySchedulingPanel({ session }) {
@@ -28,6 +29,7 @@ function SecretarySchedulingPanel({ session }) {
 
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) || null;
 
   useEffect(() => {
     let ignore = false;
@@ -346,8 +348,8 @@ function SecretarySchedulingPanel({ session }) {
                 <label>
                   <span>Gender</span>
                   <select onChange={(event) => updatePatientFormField('gender', event.target.value)} value={patientFormState.gender}>
-                    <option value="F">F</option>
-                    <option value="M">M</option>
+                    <option value="F">Female</option>
+                    <option value="M">Male</option>
                   </select>
                 </label>
                 <label>
@@ -393,7 +395,7 @@ function SecretarySchedulingPanel({ session }) {
             Selected patient: {selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : 'None'}
           </p>
           <p>
-            Selected slot: {selectedSlotId ? `#${selectedSlotId}` : 'None'}
+            Selected slot: {formatSlotReference(selectedSlot)}
           </p>
 
           <div className="admin-form">

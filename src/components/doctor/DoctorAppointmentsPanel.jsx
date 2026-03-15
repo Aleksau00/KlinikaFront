@@ -3,10 +3,10 @@ import {
   checkInAppointment,
   completeTreatmentAppointment,
   completePreventiveAppointment,
+  fetchDoctorAppointments,
   fetchPatientAllergens,
   fetchPatientVaccinationRecords,
   fetchVaccinations,
-  fetchDoctorScheduleForDate,
   markAppointmentNoShow,
 } from '../../lib/api';
 import {
@@ -15,6 +15,7 @@ import {
   isInProgressStatus,
   isScheduledStatus,
 } from '../../lib/appointments';
+import { formatAppointmentReference } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 
 const INITIAL_TREATMENT_FORM = {
@@ -34,6 +35,9 @@ const INITIAL_PREVENTIVE_FORM = {
 
 function DoctorAppointmentsPanel({ session }) {
   const [selectedDate, setSelectedDate] = useState(formatDateForInput(new Date()));
+  const [rangeMode, setRangeMode] = useState('today');
+  const [customFromDate, setCustomFromDate] = useState(formatDateForInput(new Date()));
+  const [customToDate, setCustomToDate] = useState(formatDateForInput(new Date()));
   const [patientQuery, setPatientQuery] = useState('');
   const [appointments, setAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,12 +84,60 @@ function DoctorAppointmentsPanel({ session }) {
   useEffect(() => {
     let ignore = false;
 
+    function addDays(baseDate, daysDelta) {
+      const next = new Date(baseDate);
+      next.setDate(next.getDate() + daysDelta);
+      return next;
+    }
+
+    function resolveRange() {
+      if (rangeMode === 'today') {
+        return {
+          fromDate: selectedDate,
+          toDate: selectedDate,
+        };
+      }
+
+      if (rangeMode === 'last7') {
+        const end = new Date();
+        const start = addDays(end, -6);
+        return {
+          fromDate: formatDateForInput(start),
+          toDate: formatDateForInput(end),
+        };
+      }
+
+      if (rangeMode === 'last30') {
+        const end = new Date();
+        const start = addDays(end, -29);
+        return {
+          fromDate: formatDateForInput(start),
+          toDate: formatDateForInput(end),
+        };
+      }
+
+      return {
+        fromDate: customFromDate,
+        toDate: customToDate,
+      };
+    }
+
     async function load() {
       setIsLoading(true);
       setErrorMessage('');
 
       try {
-        const data = await fetchDoctorScheduleForDate(session.token, session.worker?.id, selectedDate);
+        const { fromDate, toDate } = resolveRange();
+
+        if (!fromDate || !toDate) {
+          throw new Error('Both custom range dates are required.');
+        }
+
+        if (fromDate > toDate) {
+          throw new Error('From date must be less than or equal to To date.');
+        }
+
+        const data = await fetchDoctorAppointments(session.token, session.worker?.id, fromDate, toDate);
 
         if (!ignore) {
           setAppointments(data);
@@ -106,7 +158,7 @@ function DoctorAppointmentsPanel({ session }) {
     return () => {
       ignore = true;
     };
-  }, [session.token, session.worker?.id, selectedDate, version]);
+  }, [session.token, session.worker?.id, selectedDate, rangeMode, customFromDate, customToDate, version]);
 
   function refresh() {
     setVersion((v) => v + 1);
@@ -349,13 +401,27 @@ function DoctorAppointmentsPanel({ session }) {
     }
 
     const patientName = String(appt.patientName || '').toLowerCase();
-    const appointmentId = String(appt.id || '').toLowerCase();
-
-    return patientName.includes(query) || appointmentId.includes(query);
+    return patientName.includes(query);
   }
 
   function toggleExpanded(appointmentId) {
     setExpandedAppointmentId((current) => (current === appointmentId ? null : appointmentId));
+  }
+
+  function getRangeLabel() {
+    if (rangeMode === 'today') {
+      return selectedDate;
+    }
+
+    if (rangeMode === 'last7') {
+      return 'last 7 days';
+    }
+
+    if (rangeMode === 'last30') {
+      return 'last 30 days';
+    }
+
+    return `${customFromDate} to ${customToDate}`;
   }
 
   const filteredAppointments = appointments.filter(matchesPatientFilter);
@@ -375,10 +441,10 @@ function DoctorAppointmentsPanel({ session }) {
             <p className="eyebrow">My schedule</p>
             <h2>Appointments</h2>
           </div>
-          <span className="status-chip">{filteredAppointments.length} shown for {selectedDate}</span>
+          <span className="status-chip">{filteredAppointments.length} shown for {getRangeLabel()}</span>
         </div>
         <p>
-          View and action your appointments. You can start scheduled visits, or complete notes directly for scheduled and in-progress appointments (including past time slots).
+          View and action your appointments. You can switch between daily and historical ranges, then search by patient name.
         </p>
       </article>
 
@@ -387,24 +453,99 @@ function DoctorAppointmentsPanel({ session }) {
 
       <article className="workspace-panel">
         <div className="admin-form">
+          <div className="mode-toggle" role="tablist" aria-label="Appointment range mode">
+            <button
+              className={`ghost-button${rangeMode === 'today' ? ' is-active' : ''}`}
+              onClick={() => {
+                setRangeMode('today');
+                setExpandedAppointmentId(null);
+              }}
+              type="button"
+            >
+              Today
+            </button>
+            <button
+              className={`ghost-button${rangeMode === 'last7' ? ' is-active' : ''}`}
+              onClick={() => {
+                setRangeMode('last7');
+                setExpandedAppointmentId(null);
+              }}
+              type="button"
+            >
+              Last 7 days
+            </button>
+            <button
+              className={`ghost-button${rangeMode === 'last30' ? ' is-active' : ''}`}
+              onClick={() => {
+                setRangeMode('last30');
+                setExpandedAppointmentId(null);
+              }}
+              type="button"
+            >
+              Last 30 days
+            </button>
+            <button
+              className={`ghost-button${rangeMode === 'custom' ? ' is-active' : ''}`}
+              onClick={() => {
+                setRangeMode('custom');
+                setExpandedAppointmentId(null);
+              }}
+              type="button"
+            >
+              Custom range
+            </button>
+          </div>
+
           <div className="form-grid">
-            <label>
-              <span>Date</span>
-              <input
-                onChange={(e) => {
-                  setSelectedDate(e.target.value);
-                  setCompleteMode(null);
-                  setExpandedAppointmentId(null);
-                }}
-                type="date"
-                value={selectedDate}
-              />
-            </label>
+            {rangeMode === 'today' ? (
+              <label>
+                <span>Date</span>
+                <input
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    setCompleteMode(null);
+                    setExpandedAppointmentId(null);
+                  }}
+                  type="date"
+                  value={selectedDate}
+                />
+              </label>
+            ) : null}
+
+            {rangeMode === 'custom' ? (
+              <>
+                <label>
+                  <span>From date</span>
+                  <input
+                    onChange={(e) => {
+                      setCustomFromDate(e.target.value);
+                      setCompleteMode(null);
+                      setExpandedAppointmentId(null);
+                    }}
+                    type="date"
+                    value={customFromDate}
+                  />
+                </label>
+                <label>
+                  <span>To date</span>
+                  <input
+                    onChange={(e) => {
+                      setCustomToDate(e.target.value);
+                      setCompleteMode(null);
+                      setExpandedAppointmentId(null);
+                    }}
+                    type="date"
+                    value={customToDate}
+                  />
+                </label>
+              </>
+            ) : null}
+
             <label>
               <span>Patient / appointment search</span>
               <input
                 onChange={(e) => setPatientQuery(e.target.value)}
-                placeholder="Search by patient name or #id"
+                placeholder="Search by patient name"
                 type="text"
                 value={patientQuery}
               />
@@ -416,13 +557,14 @@ function DoctorAppointmentsPanel({ session }) {
       {isLoading ? <p>Loading appointments…</p> : null}
 
       {!isLoading && filteredAppointments.length === 0 ? (
-        <p className="muted-hint">No appointments found for current day/search filters.</p>
+        <p className="muted-hint">No appointments found for current range/search filters.</p>
       ) : null}
 
       {completeMode ? (
         <article className="workspace-panel">
-          <p className="eyebrow">Complete appointment #{completeMode.id}</p>
+          <p className="eyebrow">Complete notes</p>
           <h2>{completeMode.type === 'treatment' ? 'Treatment notes' : 'Preventive notes'}</h2>
+          <p className="muted-hint">{completeMode.patientName ? `Patient: ${completeMode.patientName}` : 'Patient unavailable'}</p>
 
           <div className="secretary-grid compact-grid" style={{ marginBottom: '1rem' }}>
             <article className="workspace-panel" style={{ margin: 0 }}>
@@ -526,13 +668,16 @@ function DoctorAppointmentsPanel({ session }) {
                     value={preventiveForm.childDevelopmentNotes}
                   />
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
-                  <input
-                    checked={preventiveForm.isVaccination}
-                    onChange={(e) => setPreventiveForm((f) => ({ ...f, isVaccination: e.target.checked, vaccinationId: '' }))}
-                    type="checkbox"
-                  />
-                  <span>This preventive visit includes vaccination</span>
+                <label className="checkbox-card-field">
+                  <span className="checkbox-card-control">
+                    <input
+                      checked={preventiveForm.isVaccination}
+                      onChange={(e) => setPreventiveForm((f) => ({ ...f, isVaccination: e.target.checked, vaccinationId: '' }))}
+                      type="checkbox"
+                    />
+                    <strong>Includes vaccination</strong>
+                  </span>
+                  <small>Enable this when the preventive visit also includes administering a vaccine.</small>
                 </label>
               </div>
 
@@ -588,7 +733,7 @@ function DoctorAppointmentsPanel({ session }) {
                   <p>Type: {getAppointmentType(appt)}</p>
                 </div>
                 <div className="data-meta">
-                  <span>#{appt.id}</span>
+                  <span>{formatAppointmentReference(appt)}</span>
                   <span>Status: {formatAppointmentStatus(appt.status)}</span>
                   <small>Clinic: {appt.clinicName}</small>
                 </div>
@@ -641,7 +786,7 @@ function DoctorAppointmentsPanel({ session }) {
                   <p>Type: {getAppointmentType(appt)}</p>
                 </div>
                 <div className="data-meta">
-                  <span>#{appt.id}</span>
+                  <span>{formatAppointmentReference(appt)}</span>
                   <span>Status: {formatAppointmentStatus(appt.status)}</span>
                   {appt.cancellationReason ? <small>Reason: {appt.cancellationReason}</small> : null}
                 </div>
@@ -673,7 +818,6 @@ function DoctorAppointmentsPanel({ session }) {
                         <p><strong>Preventive notes:</strong> {appt.preventiveNotes || 'Unavailable'}</p>
                         <p><strong>Growth/development:</strong> {appt.childDevelopmentNotes || 'Unavailable'}</p>
                         <p><strong>Vaccination:</strong> {appt.isVaccination ? 'Yes' : 'No'}</p>
-                        {appt.vaccinationId ? <p><strong>Vaccination ID:</strong> {appt.vaccinationId}</p> : null}
                         {appt.vaccinationNotes ? <p><strong>Vaccination notes:</strong> {appt.vaccinationNotes}</p> : null}
                       </>
                     )}

@@ -9,6 +9,7 @@ import {
   searchPatients,
 } from '../../lib/api';
 import { formatDateForInput } from '../../lib/appointments';
+import { formatAppointmentReference } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 import AppointmentLifecycleList from '../appointments/AppointmentLifecycleList';
 import CancelAppointmentDialog from '../appointments/CancelAppointmentDialog';
@@ -122,6 +123,11 @@ function SecretaryAppointmentsPanel({ session }) {
     setDoctorAppointments(response);
   }
 
+  function getAppointmentReference(appointmentId) {
+    const appointment = [...patientAppointments, ...doctorAppointments].find((item) => item.id === appointmentId);
+    return formatAppointmentReference(appointment);
+  }
+
   async function handleSearchPatients(event) {
     event.preventDefault();
     setIsSearchingPatients(true);
@@ -163,7 +169,7 @@ function SecretaryAppointmentsPanel({ session }) {
 
     try {
       await checkInAppointment(session.token, appointmentId);
-      setStatusMessage(`Appointment #${appointmentId} checked in.`);
+      setStatusMessage(`${getAppointmentReference(appointmentId)} checked in.`);
       playUiFeedbackSound('edited');
 
       if (selectedPatient?.id) {
@@ -211,7 +217,7 @@ function SecretaryAppointmentsPanel({ session }) {
 
     try {
       await cancelAppointment(session.token, cancelTargetAppointmentId, normalizedReason);
-      setStatusMessage(`Appointment #${cancelTargetAppointmentId} cancelled.`);
+      setStatusMessage(`${getAppointmentReference(cancelTargetAppointmentId)} cancelled.`);
       playUiFeedbackSound('cancelled');
       setCancelTargetAppointmentId(null);
       setCancelReason('');
@@ -234,7 +240,7 @@ function SecretaryAppointmentsPanel({ session }) {
 
     try {
       await markAppointmentNoShow(session.token, appointmentId);
-      setStatusMessage(`Appointment #${appointmentId} marked as no-show.`);
+      setStatusMessage(`${getAppointmentReference(appointmentId)} marked as no-show.`);
       playUiFeedbackSound('edited');
 
       if (selectedPatient?.id) {
