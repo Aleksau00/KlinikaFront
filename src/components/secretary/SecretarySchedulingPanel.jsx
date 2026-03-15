@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { bookAppointment, createPatient, fetchDoctorAvailableSlots, fetchDoctors, searchPatients } from '../../lib/api';
+import { bookAppointment, createGuardian, createPatient, fetchDoctorAvailableSlots, fetchDoctors, searchGuardians, searchPatients } from '../../lib/api';
 import { initialPatientForm } from '../../config/roles';
 import { formatDateForInput } from '../../lib/appointments';
 import { formatPatientProfileSummary, formatSlotReference } from '../../lib/display';
@@ -25,7 +25,6 @@ const initialGuardianForm = {
   jmbg: '',
   gender: 'F',
   dateOfBirth: '1985-01-01',
-  bloodType: 'A+',
 };
 
 function SecretarySchedulingPanel({ session }) {
@@ -171,8 +170,8 @@ function SecretarySchedulingPanel({ session }) {
     if (!guardianSearchTerm.trim()) return;
     setIsSearchingGuardian(true);
     try {
-      const response = await searchPatients(session.token, guardianSearchTerm.trim());
-      setGuardianResults(response.filter((p) => (getAge(p.dateOfBirth) ?? 0) >= 18));
+      const response = await searchGuardians(session.token, guardianSearchTerm.trim());
+      setGuardianResults(response);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to search for guardian.');
     } finally {
@@ -184,8 +183,7 @@ function SecretarySchedulingPanel({ session }) {
     setGuardianFormState((current) => ({ ...current, [field]: value }));
   }
 
-  async function handleCreateGuardian(event) {
-    event.preventDefault();
+  async function handleCreateGuardian() {
     setIsCreatingGuardian(true);
     setErrorMessage('');
     try {
@@ -197,11 +195,9 @@ function SecretarySchedulingPanel({ session }) {
         jmbg: guardianFormState.jmbg,
         gender: guardianFormState.gender,
         dateOfBirth: guardianFormState.dateOfBirth,
-        bloodType: guardianFormState.bloodType,
-        guardianId: null,
         addressId: null,
       };
-      const created = await createPatient(session.token, payload);
+      const created = await createGuardian(session.token, payload);
       setSelectedGuardian(created);
       setGuardianFormState(initialGuardianForm);
       setShowCreateGuardian(false);
@@ -470,7 +466,7 @@ function SecretarySchedulingPanel({ session }) {
                   </div>
 
                   {showCreateGuardian ? (
-                    <form className="admin-form" onSubmit={handleCreateGuardian}>
+                    <div className="admin-form">
                       <div className="form-grid">
                         <label>
                           <span>First name</span>
@@ -503,15 +499,27 @@ function SecretarySchedulingPanel({ session }) {
                           <span>Date of birth</span>
                           <input onChange={(e) => updateGuardianFormField('dateOfBirth', e.target.value)} required type="date" value={guardianFormState.dateOfBirth} />
                         </label>
-                        <label>
-                          <span>Blood type</span>
-                          <input onChange={(e) => updateGuardianFormField('bloodType', e.target.value)} required type="text" value={guardianFormState.bloodType} />
-                        </label>
                       </div>
-                      <button className="primary-button" disabled={isCreatingGuardian} type="submit">
+                      <button
+                        className="primary-button"
+                        disabled={
+                          isCreatingGuardian
+                          || !guardianFormState.firstName.trim()
+                          || !guardianFormState.lastName.trim()
+                          || !guardianFormState.phoneNumber.trim()
+                          || !guardianFormState.jmbg.trim()
+                          || !guardianFormState.dateOfBirth
+                          || (getAge(guardianFormState.dateOfBirth) ?? 0) < 18
+                        }
+                        onClick={handleCreateGuardian}
+                        type="button"
+                      >
                         {isCreatingGuardian ? 'Creating guardian...' : 'Create and link guardian'}
                       </button>
-                    </form>
+                      {(getAge(guardianFormState.dateOfBirth) ?? 0) < 18 ? (
+                        <p className="warn-hint">Guardian must be at least 18 years old.</p>
+                      ) : null}
+                    </div>
                   ) : (
                     <>
                       <div className="form-inline-search">

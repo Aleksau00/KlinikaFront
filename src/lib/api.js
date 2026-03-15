@@ -14,3 +14,4 @@ export {
 export { fetchVaccinations, fetchPatientVaccinationRecords, fetchPatientAllergens } from './api/vaccinations';
 export { fetchMySlots, createSlot, createWeeklySlots, createCustomSlots, markSlotUnavailable, deleteSlot } from './api/slots';
 export { fetchDoctorScheduleForDate, completeTreatmentAppointment, completePreventiveAppointment } from './api/appointments';
+export { searchGuardians, createGuardian } from './api/guardians';
