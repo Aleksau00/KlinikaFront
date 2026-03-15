@@ -26,6 +26,7 @@ import SecretaryPatientsPanel from './components/secretary/SecretaryPatientsPane
 import SecretarySchedulingPanel from './components/secretary/SecretarySchedulingPanel';
 import DoctorSlotsPanel from './components/doctor/DoctorSlotsPanel';
 import DoctorAppointmentsPanel from './components/doctor/DoctorAppointmentsPanel';
+import DoctorPatientsPanel from './components/doctor/DoctorPatientsPanel';
 import { clearStoredSession, createSession, decodeJwtPayload, isSessionExpired, readStoredSession, writeStoredSession } from './lib/session';
 import { playUiFeedbackSound } from './lib/ui-feedback';
 
@@ -295,6 +296,7 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
           {section === 'desk-guardians' ? <SecretaryGuardiansPanel session={session} /> : null}
           {section === 'desk-appointments' ? <SecretaryAppointmentsPanel session={session} /> : null}
           {section === 'my-slots' ? <DoctorSlotsPanel session={session} /> : null}
+          {section === 'my-patients' ? <DoctorPatientsPanel session={session} /> : null}
           {section === 'my-appointments' ? <DoctorAppointmentsPanel session={session} /> : null}
         </section>
       </section>
@@ -380,6 +382,12 @@ function getPortalNav(roleSlug) {
         label: 'My slots',
         description: 'Create and manage availability slots',
         path: `${basePath}/my-slots`,
+      },
+      {
+        key: 'my-patients',
+        label: 'My patients',
+        description: 'Patient overview, history, and safety context',
+        path: `${basePath}/my-patients`,
       },
       {
         key: 'my-appointments',

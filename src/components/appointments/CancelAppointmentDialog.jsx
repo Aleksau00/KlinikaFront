@@ -1,4 +1,4 @@
-function CancelAppointmentDialog({ reason, isSubmitting, onReasonChange, onConfirm, onClose }) {
+function CancelAppointmentDialog({ reason, reasonError, isSubmitting, onReasonChange, onConfirm, onClose }) {
   return (
     <div className="dialog-overlay" role="presentation">
       <div aria-modal="true" className="dialog-card" role="dialog">
@@ -16,11 +16,13 @@ function CancelAppointmentDialog({ reason, isSubmitting, onReasonChange, onConfi
           />
         </label>
 
+        {reasonError ? <p className="error-banner">{reasonError}</p> : null}
+
         <div className="row-actions dialog-actions">
           <button className="ghost-button" disabled={isSubmitting} onClick={onClose} type="button">
             Close
           </button>
-          <button className="danger-button" disabled={isSubmitting || !reason.trim()} onClick={onConfirm} type="button">
+          <button className="danger-button" disabled={isSubmitting} onClick={onConfirm} type="button">
             {isSubmitting ? 'Cancelling...' : 'Confirm cancel'}
           </button>
         </div>

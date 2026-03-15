@@ -25,7 +25,7 @@ export const roleConfig = {
     sampleEmail: 'dr.nikolic@klinika.rs',
     samplePassword: 'Admin123!',
     tasks: ['View and manage pediatric patient appointments', 'Complete treatment and preventive visit notes', 'Access patient allergen and vaccination context'],
-    sections: ['overview', 'account', 'my-slots', 'my-appointments'],
+    sections: ['overview', 'account', 'my-slots', 'my-patients', 'my-appointments'],
   },
   secretary: {
     label: 'Secretary',

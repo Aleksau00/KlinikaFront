@@ -36,6 +36,7 @@ function SecretaryAppointmentsPanel({ session }) {
   const [actionAppointmentId, setActionAppointmentId] = useState(null);
   const [cancelTargetAppointmentId, setCancelTargetAppointmentId] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [cancelReasonError, setCancelReasonError] = useState('');
 
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -235,6 +236,7 @@ function SecretaryAppointmentsPanel({ session }) {
   function handleCancel(appointmentId) {
     setCancelTargetAppointmentId(appointmentId);
     setCancelReason('');
+    setCancelReasonError('');
     setErrorMessage('');
     setStatusMessage('');
   }
@@ -246,6 +248,7 @@ function SecretaryAppointmentsPanel({ session }) {
 
     setCancelTargetAppointmentId(null);
     setCancelReason('');
+    setCancelReasonError('');
   }
 
   async function handleConfirmCancel() {
@@ -256,10 +259,11 @@ function SecretaryAppointmentsPanel({ session }) {
     const normalizedReason = cancelReason.trim();
 
     if (!normalizedReason) {
-      setErrorMessage('Cancellation reason is required.');
+      setCancelReasonError('Cancellation reason is required.');
       return;
     }
 
+    setCancelReasonError('');
     setActionAppointmentId(cancelTargetAppointmentId);
     setErrorMessage('');
     setStatusMessage('');
@@ -457,8 +461,14 @@ function SecretaryAppointmentsPanel({ session }) {
           isSubmitting={actionAppointmentId === cancelTargetAppointmentId}
           onClose={closeCancelDialog}
           onConfirm={handleConfirmCancel}
-          onReasonChange={setCancelReason}
+          onReasonChange={(value) => {
+            setCancelReason(value);
+            if (value.trim()) {
+              setCancelReasonError('');
+            }
+          }}
           reason={cancelReason}
+          reasonError={cancelReasonError}
         />
       ) : null}
     </div>
