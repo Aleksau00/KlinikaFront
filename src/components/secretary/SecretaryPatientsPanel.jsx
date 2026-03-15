@@ -57,13 +57,20 @@ function SecretaryPatientsPanel({ session }) {
 
   const [linkedGuardianDetails, setLinkedGuardianDetails] = useState(null);
   const [guardianContactForm, setGuardianContactForm] = useState({ email: '', phoneNumber: '' });
+  const [standaloneGuardianSearchTerm, setStandaloneGuardianSearchTerm] = useState('');
+  const [standaloneGuardianResults, setStandaloneGuardianResults] = useState([]);
+  const [standaloneSelectedGuardian, setStandaloneSelectedGuardian] = useState(null);
+  const [standaloneGuardianContactForm, setStandaloneGuardianContactForm] = useState({ email: '', phoneNumber: '' });
 
   const [isSearchingPatients, setIsSearchingPatients] = useState(false);
   const [isCreatingPatient, setIsCreatingPatient] = useState(false);
   const [isUpdatingPatient, setIsUpdatingPatient] = useState(false);
   const [isSearchingEditGuardian, setIsSearchingEditGuardian] = useState(false);
+  const [isSearchingStandaloneGuardian, setIsSearchingStandaloneGuardian] = useState(false);
   const [isLoadingGuardianDetails, setIsLoadingGuardianDetails] = useState(false);
   const [isSavingGuardianContact, setIsSavingGuardianContact] = useState(false);
+  const [isLoadingStandaloneGuardianDetails, setIsLoadingStandaloneGuardianDetails] = useState(false);
+  const [isSavingStandaloneGuardianContact, setIsSavingStandaloneGuardianContact] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -106,6 +113,43 @@ function SecretaryPatientsPanel({ session }) {
       ignore = true;
     };
   }, [selectedPatient?.guardianId, session.token]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadStandaloneGuardian() {
+      if (!standaloneSelectedGuardian?.id) {
+        setStandaloneGuardianContactForm({ email: '', phoneNumber: '' });
+        return;
+      }
+
+      setIsLoadingStandaloneGuardianDetails(true);
+      try {
+        const guardian = await fetchGuardianById(session.token, standaloneSelectedGuardian.id);
+        if (!ignore) {
+          setStandaloneSelectedGuardian(guardian);
+          setStandaloneGuardianContactForm({
+            email: guardian.email || '',
+            phoneNumber: guardian.phoneNumber || '',
+          });
+        }
+      } catch {
+        if (!ignore) {
+          setStandaloneGuardianContactForm({ email: '', phoneNumber: '' });
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingStandaloneGuardianDetails(false);
+        }
+      }
+    }
+
+    loadStandaloneGuardian();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session.token, standaloneSelectedGuardian?.id]);
 
   function updatePatientFormField(field, value) {
     setPatientFormState((current) => ({
@@ -281,6 +325,22 @@ function SecretaryPatientsPanel({ session }) {
     }
   }
 
+  async function handleSearchStandaloneGuardians() {
+    if (!standaloneGuardianSearchTerm.trim()) {
+      return;
+    }
+
+    setIsSearchingStandaloneGuardian(true);
+    try {
+      const response = await searchGuardians(session.token, standaloneGuardianSearchTerm.trim());
+      setStandaloneGuardianResults(response);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to search guardians.');
+    } finally {
+      setIsSearchingStandaloneGuardian(false);
+    }
+  }
+
   async function handleUpdatePatient(event) {
     event.preventDefault();
 
@@ -354,6 +414,33 @@ function SecretaryPatientsPanel({ session }) {
     }
   }
 
+  async function handleSaveStandaloneGuardianContact(event) {
+    event.preventDefault();
+
+    if (!standaloneSelectedGuardian?.id) {
+      return;
+    }
+
+    setIsSavingStandaloneGuardianContact(true);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    try {
+      const updatedGuardian = await updateGuardianContact(session.token, standaloneSelectedGuardian.id, {
+        email: standaloneGuardianContactForm.email || null,
+        phoneNumber: standaloneGuardianContactForm.phoneNumber,
+      });
+
+      setStandaloneSelectedGuardian(updatedGuardian);
+      setStatusMessage(`Guardian ${updatedGuardian.firstName} ${updatedGuardian.lastName} contact details updated.`);
+      playUiFeedbackSound('edited');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to update guardian contact details.');
+    } finally {
+      setIsSavingStandaloneGuardianContact(false);
+    }
+  }
+
   const isPatientMinor = (getAge(patientFormState.dateOfBirth) ?? 99) < 18;
   const canCreatePatient = !isPatientMinor || selectedGuardian !== null;
 
@@ -412,6 +499,102 @@ function SecretaryPatientsPanel({ session }) {
             </article>
           ))}
         </div>
+      </article>
+
+      <article className="workspace-panel">
+        <p className="eyebrow">Guardian maintenance</p>
+        <h2>Find and edit guardian directly</h2>
+        <div className="form-inline-search" style={{ marginBottom: '0.75rem' }}>
+          <input
+            onChange={(event) => setStandaloneGuardianSearchTerm(event.target.value)}
+            placeholder="Search guardian by name, email, phone, or JMBG"
+            type="text"
+            value={standaloneGuardianSearchTerm}
+          />
+          <button
+            className="ghost-button"
+            disabled={isSearchingStandaloneGuardian || !standaloneGuardianSearchTerm.trim()}
+            onClick={handleSearchStandaloneGuardians}
+            type="button"
+          >
+            {isSearchingStandaloneGuardian ? 'Searching...' : 'Find guardian'}
+          </button>
+        </div>
+
+        {standaloneGuardianResults.length > 0 ? (
+          <div className="data-list data-list-scroll" style={{ marginBottom: '0.75rem' }}>
+            {standaloneGuardianResults.map((guardian) => (
+              <article className={`data-row${standaloneSelectedGuardian?.id === guardian.id ? ' data-row-selected' : ''}`} key={guardian.id}>
+                <div>
+                  <strong>{guardian.firstName} {guardian.lastName}</strong>
+                  <p>{guardian.email || guardian.phoneNumber || 'No contact details'}</p>
+                </div>
+                <div className="data-meta">
+                  <span>JMBG: {guardian.jmbg}</span>
+                </div>
+                <div className="row-actions">
+                  <button
+                    className={standaloneSelectedGuardian?.id === guardian.id ? 'primary-button' : 'ghost-button'}
+                    onClick={() => {
+                      setStandaloneSelectedGuardian(guardian);
+                      playUiFeedbackSound('select');
+                    }}
+                    type="button"
+                  >
+                    {standaloneSelectedGuardian?.id === guardian.id ? 'Selected' : 'Select'}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
+
+        {standaloneSelectedGuardian ? (
+          <form className="admin-form" onSubmit={handleSaveStandaloneGuardianContact}>
+            {isLoadingStandaloneGuardianDetails ? <p>Loading guardian details...</p> : null}
+            {!isLoadingStandaloneGuardianDetails ? (
+              <>
+                <p className="muted-hint">
+                  Editing contact details for {standaloneSelectedGuardian.firstName} {standaloneSelectedGuardian.lastName}
+                </p>
+                <div className="form-grid">
+                  <label>
+                    <span>Email</span>
+                    <input
+                      onChange={(event) => setStandaloneGuardianContactForm((current) => ({ ...current, email: event.target.value }))}
+                      type="email"
+                      value={standaloneGuardianContactForm.email}
+                    />
+                  </label>
+                  <label>
+                    <span>Phone number</span>
+                    <input
+                      onChange={(event) => setStandaloneGuardianContactForm((current) => ({ ...current, phoneNumber: event.target.value }))}
+                      required
+                      type="text"
+                      value={standaloneGuardianContactForm.phoneNumber}
+                    />
+                  </label>
+                </div>
+                <div className="row-actions">
+                  <button className="primary-button" disabled={isSavingStandaloneGuardianContact} type="submit">
+                    {isSavingStandaloneGuardianContact ? 'Saving contact...' : 'Save guardian contact'}
+                  </button>
+                  <button
+                    className="ghost-button"
+                    onClick={() => {
+                      setStandaloneSelectedGuardian(null);
+                      setStandaloneGuardianContactForm({ email: '', phoneNumber: '' });
+                    }}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </form>
+        ) : null}
       </article>
 
       {showCreatePatient ? (
