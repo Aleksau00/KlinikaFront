@@ -284,7 +284,7 @@ function AdminStaffPanel({ session }) {
               <div className="form-grid">
                 <label>
                   <span>Specialty</span>
-                  <input onChange={(event) => updateField('specialty', event.target.value)} type="text" value={formState.specialty} />
+                  <input list="pediatric-specialties" onChange={(event) => updateField('specialty', event.target.value)} placeholder="e.g. General Pediatrics" type="text" value={formState.specialty} />
                 </label>
                 <label>
                   <span>License number</span>
@@ -292,6 +292,19 @@ function AdminStaffPanel({ session }) {
                 </label>
               </div>
             ) : null}
+
+            <datalist id="pediatric-specialties">
+              <option value="General Pediatrics" />
+              <option value="Neonatology" />
+              <option value="Developmental-Behavioral Pediatrics" />
+              <option value="Pediatric Neurology" />
+              <option value="Pediatric Pulmonology" />
+              <option value="Pediatric Gastroenterology" />
+              <option value="Pediatric Endocrinology" />
+              <option value="Pediatric Infectious Disease" />
+              <option value="Pediatric Rheumatology" />
+              <option value="Pediatric Hematology-Oncology" />
+            </datalist>
 
             {formState.role === 'Secretary' ? (
               <label>
@@ -383,7 +396,7 @@ function AdminStaffPanel({ session }) {
               <div className="form-grid">
                 <label>
                   <span>Specialty</span>
-                  <input onChange={(event) => updateEditField('specialty', event.target.value)} type="text" value={editFormState.specialty} />
+                  <input list="pediatric-specialties" onChange={(event) => updateEditField('specialty', event.target.value)} placeholder="e.g. General Pediatrics" type="text" value={editFormState.specialty} />
                 </label>
                 <label>
                   <span>License number</span>

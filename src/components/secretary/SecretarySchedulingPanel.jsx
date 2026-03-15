@@ -17,6 +17,17 @@ function getAge(dateOfBirth) {
   return age;
 }
 
+const initialGuardianForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phoneNumber: '',
+  jmbg: '',
+  gender: 'F',
+  dateOfBirth: '1985-01-01',
+  bloodType: 'A+',
+};
+
 function SecretarySchedulingPanel({ session }) {
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -43,6 +54,9 @@ function SecretarySchedulingPanel({ session }) {
   const [guardianResults, setGuardianResults] = useState([]);
   const [selectedGuardian, setSelectedGuardian] = useState(null);
   const [isSearchingGuardian, setIsSearchingGuardian] = useState(false);
+  const [guardianFormState, setGuardianFormState] = useState(initialGuardianForm);
+  const [showCreateGuardian, setShowCreateGuardian] = useState(false);
+  const [isCreatingGuardian, setIsCreatingGuardian] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -166,6 +180,42 @@ function SecretarySchedulingPanel({ session }) {
     }
   }
 
+  function updateGuardianFormField(field, value) {
+    setGuardianFormState((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleCreateGuardian(event) {
+    event.preventDefault();
+    setIsCreatingGuardian(true);
+    setErrorMessage('');
+    try {
+      const payload = {
+        firstName: guardianFormState.firstName,
+        lastName: guardianFormState.lastName,
+        email: guardianFormState.email || null,
+        phoneNumber: guardianFormState.phoneNumber,
+        jmbg: guardianFormState.jmbg,
+        gender: guardianFormState.gender,
+        dateOfBirth: guardianFormState.dateOfBirth,
+        bloodType: guardianFormState.bloodType,
+        guardianId: null,
+        addressId: null,
+      };
+      const created = await createPatient(session.token, payload);
+      setSelectedGuardian(created);
+      setGuardianFormState(initialGuardianForm);
+      setShowCreateGuardian(false);
+      setGuardianResults([]);
+      setGuardianSearchTerm('');
+      setStatusMessage(`Guardian ${created.firstName} ${created.lastName} created and linked.`);
+      playUiFeedbackSound('created');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to create guardian.');
+    } finally {
+      setIsCreatingGuardian(false);
+    }
+  }
+
   function updatePatientFormField(field, value) {
     setPatientFormState((current) => ({
       ...current,
@@ -200,6 +250,8 @@ function SecretarySchedulingPanel({ session }) {
       setSelectedGuardian(null);
       setGuardianResults([]);
       setGuardianSearchTerm('');
+      setGuardianFormState(initialGuardianForm);
+      setShowCreateGuardian(false);
       setShowCreatePatient(false);
 
       const refreshedPatients = await searchPatients(session.token, created.jmbg);
@@ -257,7 +309,7 @@ function SecretarySchedulingPanel({ session }) {
           </div>
           <span className="status-chip">{doctors.length} doctors</span>
         </div>
-        <p>Use this panel to find patients, create new patient records, pick doctor slots, and execute booking/check-in/cancel/no-show workflows.</p>
+        <p>Use this panel to register pediatric patients (ages 0–25), link guardians for minors, pick doctor slots, and execute booking/check-in/cancel/no-show workflows.</p>
       </article>
 
       {statusMessage ? <p className="info-banner">{statusMessage}</p> : null}
@@ -399,47 +451,122 @@ function SecretarySchedulingPanel({ session }) {
               </div>
               {isPatientMinor ? (
                 <div className="guardian-search-section">
-                  <p className="eyebrow">Guardian required</p>
-                  <p className="muted-hint">This patient is under 18. Search for and select an adult guardian from existing patient records.</p>
-                  <div className="form-inline-search">
-                    <input
-                      onChange={(event) => setGuardianSearchTerm(event.target.value)}
-                      placeholder="Search guardian by name, email, or phone"
-                      type="text"
-                      value={guardianSearchTerm}
-                    />
+                  <div className="panel-heading-row">
+                    <div>
+                      <p className="eyebrow">Guardian required</p>
+                      <p className="muted-hint">Patient is under 18. Link an existing adult or create a new guardian record.</p>
+                    </div>
                     <button
                       className="ghost-button"
-                      disabled={isSearchingGuardian || !guardianSearchTerm.trim()}
-                      onClick={handleSearchGuardian}
+                      onClick={() => {
+                        setShowCreateGuardian((c) => !c);
+                        setGuardianResults([]);
+                        setGuardianSearchTerm('');
+                      }}
                       type="button"
                     >
-                      {isSearchingGuardian ? 'Searching...' : 'Find guardian'}
+                      {showCreateGuardian ? 'Search instead' : 'New guardian'}
                     </button>
                   </div>
-                  {guardianResults.length > 0 ? (
-                    <div className="data-list">
-                      {guardianResults.map((g) => (
-                        <article className={`data-row${selectedGuardian?.id === g.id ? ' data-row-selected' : ''}`} key={g.id}>
-                          <div>
-                            <strong>{g.firstName} {g.lastName}</strong>
-                            <p>{g.email || g.phoneNumber || 'No contact details'}</p>
-                          </div>
-                          <div className="row-actions">
-                            <button
-                              className={selectedGuardian?.id === g.id ? 'primary-button' : 'ghost-button'}
-                              onClick={() => setSelectedGuardian((current) => (current?.id === g.id ? null : g))}
-                              type="button"
-                            >
-                              {selectedGuardian?.id === g.id ? 'Selected ✓' : 'Select'}
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  ) : null}
+
+                  {showCreateGuardian ? (
+                    <form className="admin-form" onSubmit={handleCreateGuardian}>
+                      <div className="form-grid">
+                        <label>
+                          <span>First name</span>
+                          <input onChange={(e) => updateGuardianFormField('firstName', e.target.value)} required type="text" value={guardianFormState.firstName} />
+                        </label>
+                        <label>
+                          <span>Last name</span>
+                          <input onChange={(e) => updateGuardianFormField('lastName', e.target.value)} required type="text" value={guardianFormState.lastName} />
+                        </label>
+                        <label>
+                          <span>Email</span>
+                          <input onChange={(e) => updateGuardianFormField('email', e.target.value)} type="email" value={guardianFormState.email} />
+                        </label>
+                        <label>
+                          <span>Phone number</span>
+                          <input onChange={(e) => updateGuardianFormField('phoneNumber', e.target.value)} required type="text" value={guardianFormState.phoneNumber} />
+                        </label>
+                        <label>
+                          <span>JMBG</span>
+                          <input onChange={(e) => updateGuardianFormField('jmbg', e.target.value)} required type="text" value={guardianFormState.jmbg} />
+                        </label>
+                        <label>
+                          <span>Gender</span>
+                          <select onChange={(e) => updateGuardianFormField('gender', e.target.value)} value={guardianFormState.gender}>
+                            <option value="F">Female</option>
+                            <option value="M">Male</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>Date of birth</span>
+                          <input onChange={(e) => updateGuardianFormField('dateOfBirth', e.target.value)} required type="date" value={guardianFormState.dateOfBirth} />
+                        </label>
+                        <label>
+                          <span>Blood type</span>
+                          <input onChange={(e) => updateGuardianFormField('bloodType', e.target.value)} required type="text" value={guardianFormState.bloodType} />
+                        </label>
+                      </div>
+                      <button className="primary-button" disabled={isCreatingGuardian} type="submit">
+                        {isCreatingGuardian ? 'Creating guardian...' : 'Create and link guardian'}
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="form-inline-search">
+                        <input
+                          onChange={(event) => setGuardianSearchTerm(event.target.value)}
+                          placeholder="Search guardian by name, email, or phone"
+                          type="text"
+                          value={guardianSearchTerm}
+                        />
+                        <button
+                          className="ghost-button"
+                          disabled={isSearchingGuardian || !guardianSearchTerm.trim()}
+                          onClick={handleSearchGuardian}
+                          type="button"
+                        >
+                          {isSearchingGuardian ? 'Searching...' : 'Find guardian'}
+                        </button>
+                      </div>
+                      {guardianResults.length > 0 ? (
+                        <div className="data-list">
+                          {guardianResults.map((g) => (
+                            <article className={`data-row${selectedGuardian?.id === g.id ? ' data-row-selected' : ''}`} key={g.id}>
+                              <div>
+                                <strong>{g.firstName} {g.lastName}</strong>
+                                <p>{g.email || g.phoneNumber || 'No contact details'}</p>
+                              </div>
+                              <div className="row-actions">
+                                <button
+                                  className={selectedGuardian?.id === g.id ? 'primary-button' : 'ghost-button'}
+                                  onClick={() => setSelectedGuardian((current) => (current?.id === g.id ? null : g))}
+                                  type="button"
+                                >
+                                  {selectedGuardian?.id === g.id ? 'Selected ✓' : 'Select'}
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+
                   {selectedGuardian ? (
-                    <p className="info-banner">Guardian linked: {selectedGuardian.firstName} {selectedGuardian.lastName}</p>
+                    <p className="info-banner">
+                      {'Guardian linked: '}{selectedGuardian.firstName} {selectedGuardian.lastName}
+                      {'  '}
+                      <button
+                        className="ghost-button"
+                        onClick={() => setSelectedGuardian(null)}
+                        style={{ fontSize: '0.8rem', padding: '2px 10px' }}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </p>
                   ) : (
                     <p className="warn-hint">No guardian selected — required for patients under 18.</p>
                   )}

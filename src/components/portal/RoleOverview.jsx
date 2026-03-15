@@ -10,14 +10,14 @@ function RoleOverview({ roleSlug, session }) {
       highlights: ['Administrator-only routes stay isolated behind this portal', 'Live worker directory and worker provisioning are available', 'Clinic list is available inside the admin shell'],
     },
     doctor: {
-      title: 'Doctor workspace entry is in place.',
-      copy: 'This panel is ready to receive consultation, appointment, and patient-facing doctor workflows once you finish validating authentication.',
-      highlights: ['Doctor-only login route is enforced', 'JWT role mismatch is blocked before portal entry', 'Account panel shows richer profile data from the backend'],
+      title: 'Pediatric clinical workspace is active.',
+      copy: 'Use this portal to manage your daily pediatric appointments, complete visit notes, and review patient allergen and vaccination context before consultations.',
+      highlights: ['Appointment list shows active and completed visits', 'Patient context loads allergens, vaccinations, and prior appointments', 'Treatment and preventive note forms are available per visit type'],
     },
     secretary: {
-      title: 'Secretary workspace entry is in place.',
-      copy: 'This panel is prepared for booking, reception, and patient intake flows after you validate login behavior end to end.',
-      highlights: ['Secretary-only login route is enforced', 'JWT session survives reload through local storage', 'Account panel shows clinic assignment and session timing'],
+      title: 'Pediatric front-desk workspace is active.',
+      copy: 'Use this portal to register pediatric patients, link guardians for minors under 18, and book appointments across available doctor slots.',
+      highlights: ['Minor patients require a guardian to be linked or created at intake', 'Guardian search filters to adults only', 'Patient list flags minors with missing guardian links'],
     },
   };
 
