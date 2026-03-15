@@ -421,6 +421,17 @@ input {
   margin-top: 0;
 }
 
+.doctor-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.doctor-actions-grid > .workspace-panel {
+  height: 100%;
+}
+
 .portal-shell {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);

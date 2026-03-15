@@ -36,6 +36,12 @@ function SecretaryAppointmentsPanel({ session }) {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
+    if (toDate < fromDate) {
+      setToDate(fromDate);
+    }
+  }, [fromDate, toDate]);
+
+  useEffect(() => {
     let ignore = false;
 
     async function loadDoctors() {
@@ -344,7 +350,7 @@ function SecretaryAppointmentsPanel({ session }) {
                 </label>
                 <label>
                   <span>To date</span>
-                  <input onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} />
+                  <input min={fromDate} onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} />
                 </label>
               </div>
             </div>

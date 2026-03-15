@@ -1,7 +1,29 @@
 import { useState } from 'react';
 import { roleConfig } from '../../config/roles';
 
-function AccountPanel({ onRefreshSession, roleSlug, session, formatDate, formatDateTime, getRoleSpecificSummary }) {
+function formatDate(value) {
+  if (!value) return 'Unavailable';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Unavailable';
+  return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' }).format(parsed);
+}
+
+function formatDateTime(value) {
+  if (!value) return 'Unavailable';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Unavailable';
+  return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
+}
+
+function getRoleSpecificSummary(worker) {
+  if (!worker) return 'Unavailable';
+  if (worker.role === 'Administrator') return worker.seniorityLevel || 'No seniority level set';
+  if (worker.role === 'Doctor') return worker.specialty ? `${worker.specialty} • ${worker.licenseNumber || 'No license number'}` : 'No specialty set';
+  if (worker.role === 'Secretary') return worker.qualification || 'No qualification set';
+  return 'Unavailable';
+}
+
+function AccountPanel({ onRefreshSession, roleSlug, session }) {
   const config = roleConfig[roleSlug];
   const [statusMessage, setStatusMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
