@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import {
+  addPatientAllergen,
   checkInAppointment,
   completeTreatmentAppointment,
   completePreventiveAppointment,
+  fetchAllergens,
   fetchDoctorAppointments,
   fetchPatientAllergens,
   fetchPatientAppointments,
   fetchPatientVaccinationRecords,
   fetchVaccinations,
   markAppointmentNoShow,
+  removePatientAllergen,
 } from '../../lib/api';
 import {
   formatAppointmentStatus,
@@ -51,10 +54,15 @@ function DoctorAppointmentsPanel({ session }) {
   const [isCompleting, setIsCompleting] = useState(false);
 
   const [vaccinations, setVaccinations] = useState([]);
+  const [allAllergens, setAllAllergens] = useState([]);
   const [patientAllergens, setPatientAllergens] = useState([]);
   const [patientVaccinationHistory, setPatientVaccinationHistory] = useState([]);
   const [patientAppointmentHistory, setPatientAppointmentHistory] = useState([]);
   const [isLoadingPatientContext, setIsLoadingPatientContext] = useState(false);
+
+  const [allergenAddForm, setAllergenAddForm] = useState({ allergenId: '', diagnosedDate: formatDateForInput(new Date()), notes: '' });
+  const [isAddingAllergen, setIsAddingAllergen] = useState(false);
+  const [allergenError, setAllergenError] = useState('');
 
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -77,6 +85,29 @@ function DoctorAppointmentsPanel({ session }) {
     }
 
     loadVaccinations();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session.token]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadAllAllergens() {
+      try {
+        const data = await fetchAllergens(session.token);
+        if (!ignore) {
+          setAllAllergens(data);
+        }
+      } catch {
+        if (!ignore) {
+          setAllAllergens([]);
+        }
+      }
+    }
+
+    loadAllAllergens();
 
     return () => {
       ignore = true;
@@ -347,6 +378,44 @@ function DoctorAppointmentsPanel({ session }) {
     }
   }
 
+  async function handleAddAllergen() {
+    const { allergenId, diagnosedDate, notes } = allergenAddForm;
+    if (!allergenId || !selectedContextPatientId) {
+      return;
+    }
+
+    setIsAddingAllergen(true);
+    setAllergenError('');
+
+    try {
+      await addPatientAllergen(session.token, selectedContextPatientId, Number(allergenId), diagnosedDate, notes);
+      const updated = await fetchPatientAllergens(session.token, selectedContextPatientId);
+      setPatientAllergens(updated);
+      setAllergenAddForm((f) => ({ ...f, allergenId: '', notes: '' }));
+      playUiFeedbackSound('created');
+    } catch (error) {
+      setAllergenError(error instanceof Error ? error.message : 'Unable to add allergen.');
+    } finally {
+      setIsAddingAllergen(false);
+    }
+  }
+
+  async function handleRemoveAllergen(allergenId) {
+    if (!selectedContextPatientId) {
+      return;
+    }
+
+    setAllergenError('');
+
+    try {
+      await removePatientAllergen(session.token, selectedContextPatientId, allergenId);
+      setPatientAllergens((prev) => prev.filter((a) => a.allergenId !== allergenId));
+      playUiFeedbackSound('select');
+    } catch (error) {
+      setAllergenError(error instanceof Error ? error.message : 'Unable to remove allergen.');
+    }
+  }
+
   function openComplete(appointment) {
     const type = isTreatmentAppointmentType(appointment.appointmentType) ? 'treatment' : 'preventive';
 
@@ -442,26 +511,109 @@ function DoctorAppointmentsPanel({ session }) {
       .slice(0, 5);
   }
 
-  function renderPatientContextCards(currentAppointmentId) {
+  function renderAllergenEditorCard() {
+    const assignedIds = new Set(patientAllergens.map((a) => a.allergenId));
+    const available = allAllergens.filter((a) => !assignedIds.has(a.id));
+
+    return (
+      <section className="clinical-card">
+        <p className="eyebrow">Patient safety</p>
+        <h3>Known allergens</h3>
+        {isLoadingPatientContext ? <p>Loading allergens...</p> : null}
+        {!isLoadingPatientContext && patientAllergens.length === 0 ? (
+          <p className="muted-hint">No known allergens recorded.</p>
+        ) : null}
+        {!isLoadingPatientContext && patientAllergens.length > 0 ? (
+          <ul>
+            {patientAllergens.map((item) => (
+              <li key={`${item.patientId}-${item.allergenId}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', padding: '0.2rem 0' }}>
+                <span>
+                  <strong>{item.allergenName}</strong>
+                  {item.notes ? <small style={{ marginLeft: '0.4rem', opacity: 0.7 }}>{item.notes}</small> : null}
+                </span>
+                <button
+                  className="danger-button-outline"
+                  onClick={() => handleRemoveAllergen(item.allergenId)}
+                  style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {allergenError ? <p className="error-banner" style={{ marginTop: '0.5rem' }}>{allergenError}</p> : null}
+        {available.length > 0 ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem', alignItems: 'flex-end' }}>
+            <label style={{ flex: '1 1 140px' }}>
+              <span style={{ fontSize: '0.75rem' }}>Add allergen</span>
+              <select
+                onChange={(e) => setAllergenAddForm((f) => ({ ...f, allergenId: e.target.value }))}
+                value={allergenAddForm.allergenId}
+              >
+                <option value="">Select...</option>
+                {available.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </label>
+            <label style={{ flex: '1 1 130px' }}>
+              <span style={{ fontSize: '0.75rem' }}>Diagnosed date</span>
+              <input
+                onChange={(e) => setAllergenAddForm((f) => ({ ...f, diagnosedDate: e.target.value }))}
+                type="date"
+                value={allergenAddForm.diagnosedDate}
+              />
+            </label>
+            <label style={{ flex: '2 1 160px' }}>
+              <span style={{ fontSize: '0.75rem' }}>Notes (optional)</span>
+              <input
+                onChange={(e) => setAllergenAddForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="e.g. causes hives"
+                type="text"
+                value={allergenAddForm.notes}
+              />
+            </label>
+            <button
+              className="primary-button"
+              disabled={!allergenAddForm.allergenId || isAddingAllergen}
+              onClick={handleAddAllergen}
+              style={{ alignSelf: 'flex-end' }}
+              type="button"
+            >
+              {isAddingAllergen ? 'Adding…' : 'Add'}
+            </button>
+          </div>
+        ) : (
+          <p className="muted-hint" style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>All known allergens are already recorded.</p>
+        )}
+      </section>
+    );
+  }
+
+  function renderPatientContextCards(currentAppointmentId, options = {}) {
     const recentAppointments = getRelatedAppointments(currentAppointmentId);
 
     return (
       <>
-        <section className="clinical-card">
-          <p className="eyebrow">Patient safety</p>
-          <h3>Known allergens</h3>
-          {isLoadingPatientContext ? <p>Loading allergens...</p> : null}
-          {!isLoadingPatientContext && patientAllergens.length === 0 ? <p className="muted-hint">No known allergens.</p> : null}
-          {!isLoadingPatientContext && patientAllergens.length > 0 ? (
-            <ul>
-              {patientAllergens.map((item) => (
-                <li key={`${item.patientId}-${item.allergenId}`}>
-                  <strong>{item.allergenName}</strong>{item.notes ? ` - ${item.notes}` : ''}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
+        {!options.skipAllergens ? (
+          <section className="clinical-card">
+            <p className="eyebrow">Patient safety</p>
+            <h3>Known allergens</h3>
+            {isLoadingPatientContext ? <p>Loading allergens...</p> : null}
+            {!isLoadingPatientContext && patientAllergens.length === 0 ? <p className="muted-hint">No known allergens.</p> : null}
+            {!isLoadingPatientContext && patientAllergens.length > 0 ? (
+              <ul>
+                {patientAllergens.map((item) => (
+                  <li key={`${item.patientId}-${item.allergenId}`}>
+                    <strong>{item.allergenName}</strong>{item.notes ? ` - ${item.notes}` : ''}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="clinical-card">
           <p className="eyebrow">Immunization context</p>
@@ -711,7 +863,8 @@ function DoctorAppointmentsPanel({ session }) {
           <p className="muted-hint">{completeMode.patientName ? `Patient: ${completeMode.patientName}` : 'Patient unavailable'}</p>
 
           <div className="clinical-context-grid clinical-context-grid-compact">
-            {renderPatientContextCards(completeMode.id)}
+            {renderAllergenEditorCard()}
+            {renderPatientContextCards(completeMode.id, { skipAllergens: true })}
           </div>
 
           {completeMode.type === 'treatment' ? (
@@ -797,7 +950,7 @@ function DoctorAppointmentsPanel({ session }) {
                   </label>
                 </section>
 
-                {renderPatientContextCards(completeMode.id)}
+                {renderPatientContextCards(completeMode.id, { skipAllergens: true })}
               </div>
 
               {preventiveForm.isVaccination ? (
