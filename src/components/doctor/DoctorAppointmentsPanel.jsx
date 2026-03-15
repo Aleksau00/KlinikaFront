@@ -34,6 +34,7 @@ const INITIAL_PREVENTIVE_FORM = {
 
 function DoctorAppointmentsPanel({ session }) {
   const [selectedDate, setSelectedDate] = useState(formatDateForInput(new Date()));
+  const [patientQuery, setPatientQuery] = useState('');
   const [appointments, setAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [version, setVersion] = useState(0);
@@ -51,6 +52,7 @@ function DoctorAppointmentsPanel({ session }) {
 
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [expandedAppointmentId, setExpandedAppointmentId] = useState(null);
 
   useEffect(() => {
     let ignore = false;
@@ -153,6 +155,10 @@ function DoctorAppointmentsPanel({ session }) {
     };
   }, [completeMode?.patientId, session.token]);
 
+  function isTreatmentAppointmentType(value) {
+    return value === 1 || value === '1' || value === 'Treatment';
+  }
+
   async function handleStartAppointment(appointmentId) {
     setActionId(appointmentId);
     setErrorMessage('');
@@ -199,7 +205,18 @@ function DoctorAppointmentsPanel({ session }) {
     setStatusMessage('');
 
     try {
-      await completeTreatmentAppointment(session.token, completeMode.id, treatmentForm);
+      try {
+        await completeTreatmentAppointment(session.token, completeMode.id, treatmentForm);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (!message.includes('status: Scheduled')) {
+          throw error;
+        }
+
+        await checkInAppointment(session.token, completeMode.id);
+        await completeTreatmentAppointment(session.token, completeMode.id, treatmentForm);
+      }
+
       setStatusMessage('Appointment completed with treatment notes.');
       playUiFeedbackSound('created');
       setCompleteMode(null);
@@ -224,6 +241,14 @@ function DoctorAppointmentsPanel({ session }) {
     setStatusMessage('');
 
     try {
+      const hasPreventiveNotes = Boolean(preventiveForm.preventiveNotes.trim());
+      const hasDevelopmentNotes = Boolean(preventiveForm.childDevelopmentNotes.trim());
+      const hasVaccinationData = Boolean(preventiveForm.isVaccination && preventiveForm.vaccinationId);
+
+      if (!hasPreventiveNotes && !hasDevelopmentNotes && !hasVaccinationData) {
+        throw new Error('Enter preventive notes, growth/development notes, or vaccination details before saving.');
+      }
+
       const payload = {
         preventiveNotes: preventiveForm.preventiveNotes,
         childDevelopmentNotes: preventiveForm.childDevelopmentNotes,
@@ -234,7 +259,18 @@ function DoctorAppointmentsPanel({ session }) {
         vaccinationNotes: preventiveForm.vaccinationNotes,
       };
 
-      await completePreventiveAppointment(session.token, completeMode.id, payload);
+      try {
+        await completePreventiveAppointment(session.token, completeMode.id, payload);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (!message.includes('status: Scheduled')) {
+          throw error;
+        }
+
+        await checkInAppointment(session.token, completeMode.id);
+        await completePreventiveAppointment(session.token, completeMode.id, payload);
+      }
+
       setStatusMessage('Appointment completed with preventive notes.');
       playUiFeedbackSound('created');
       setCompleteMode(null);
@@ -248,7 +284,7 @@ function DoctorAppointmentsPanel({ session }) {
   }
 
   function openComplete(appointment) {
-    const type = appointment.appointmentType === 0 || appointment.appointmentType === 'Treatment' ? 'treatment' : 'preventive';
+    const type = isTreatmentAppointmentType(appointment.appointmentType) ? 'treatment' : 'preventive';
 
     setCompleteMode({
       id: appointment.id,
@@ -264,13 +300,70 @@ function DoctorAppointmentsPanel({ session }) {
   }
 
   function getAppointmentType(appt) {
-    return appt.appointmentType === 0 || appt.appointmentType === 'Treatment' ? 'Treatment' : 'Preventive';
+    return isTreatmentAppointmentType(appt.appointmentType) ? 'Treatment' : 'Preventive';
   }
 
-  const activeAppointments = appointments.filter(
+  function isPastScheduledAppointment(appt) {
+    if (!isScheduledStatus(appt.status)) {
+      return false;
+    }
+
+    try {
+      const dateText = String(appt.scheduledDate || '').trim();
+      const startText = String(appt.scheduledStartTime || '').slice(0, 8);
+
+      if (!dateText || !startText) {
+        return false;
+      }
+
+      const localDateTime = new Date(`${dateText}T${startText}`);
+
+      if (Number.isNaN(localDateTime.getTime())) {
+        return false;
+      }
+
+      return localDateTime < new Date();
+    } catch {
+      return false;
+    }
+  }
+
+  function formatDateTime(value) {
+    if (!value) {
+      return 'Unavailable';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'Unavailable';
+    }
+
+    return parsed.toLocaleString('en-GB');
+  }
+
+  function matchesPatientFilter(appt) {
+    const query = patientQuery.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    const patientName = String(appt.patientName || '').toLowerCase();
+    const appointmentId = String(appt.id || '').toLowerCase();
+
+    return patientName.includes(query) || appointmentId.includes(query);
+  }
+
+  function toggleExpanded(appointmentId) {
+    setExpandedAppointmentId((current) => (current === appointmentId ? null : appointmentId));
+  }
+
+  const filteredAppointments = appointments.filter(matchesPatientFilter);
+
+  const activeAppointments = filteredAppointments.filter(
     (a) => isInProgressStatus(a.status) || isScheduledStatus(a.status),
   );
-  const closedAppointments = appointments.filter(
+  const closedAppointments = filteredAppointments.filter(
     (a) => !isInProgressStatus(a.status) && !isScheduledStatus(a.status),
   );
 
@@ -282,10 +375,10 @@ function DoctorAppointmentsPanel({ session }) {
             <p className="eyebrow">My schedule</p>
             <h2>Appointments</h2>
           </div>
-          <span className="status-chip">{appointments.length} for {selectedDate}</span>
+          <span className="status-chip">{filteredAppointments.length} shown for {selectedDate}</span>
         </div>
         <p>
-          View and action your appointments. Complete treatment or preventive notes for in-progress appointments, or mark no-shows.
+          View and action your appointments. You can start scheduled visits, or complete notes directly for scheduled and in-progress appointments (including past time slots).
         </p>
       </article>
 
@@ -301,9 +394,19 @@ function DoctorAppointmentsPanel({ session }) {
                 onChange={(e) => {
                   setSelectedDate(e.target.value);
                   setCompleteMode(null);
+                  setExpandedAppointmentId(null);
                 }}
                 type="date"
                 value={selectedDate}
+              />
+            </label>
+            <label>
+              <span>Patient / appointment search</span>
+              <input
+                onChange={(e) => setPatientQuery(e.target.value)}
+                placeholder="Search by patient name or #id"
+                type="text"
+                value={patientQuery}
               />
             </label>
           </div>
@@ -312,8 +415,8 @@ function DoctorAppointmentsPanel({ session }) {
 
       {isLoading ? <p>Loading appointments…</p> : null}
 
-      {!isLoading && appointments.length === 0 ? (
-        <p className="muted-hint">No appointments found for {selectedDate}.</p>
+      {!isLoading && filteredAppointments.length === 0 ? (
+        <p className="muted-hint">No appointments found for current day/search filters.</p>
       ) : null}
 
       {completeMode ? (
@@ -490,7 +593,7 @@ function DoctorAppointmentsPanel({ session }) {
                   <small>Clinic: {appt.clinicName}</small>
                 </div>
                 <div className="row-actions">
-                  {isScheduledStatus(appt.status) ? (
+                  {isScheduledStatus(appt.status) && !isPastScheduledAppointment(appt) ? (
                     <button
                       className="ghost-button"
                       disabled={actionId === appt.id}
@@ -500,14 +603,14 @@ function DoctorAppointmentsPanel({ session }) {
                       Start
                     </button>
                   ) : null}
-                  {isInProgressStatus(appt.status) ? (
+                  {isInProgressStatus(appt.status) || isScheduledStatus(appt.status) ? (
                     <button
                       className="primary-button"
                       disabled={actionId === appt.id}
                       onClick={() => openComplete(appt)}
                       type="button"
                     >
-                      Complete
+                      Complete notes
                     </button>
                   ) : null}
                   <button
@@ -542,6 +645,40 @@ function DoctorAppointmentsPanel({ session }) {
                   <span>Status: {formatAppointmentStatus(appt.status)}</span>
                   {appt.cancellationReason ? <small>Reason: {appt.cancellationReason}</small> : null}
                 </div>
+                <div className="row-actions">
+                  <button
+                    className="ghost-button"
+                    onClick={() => toggleExpanded(appt.id)}
+                    type="button"
+                  >
+                    {expandedAppointmentId === appt.id ? 'Hide details' : 'View details'}
+                  </button>
+                </div>
+
+                {expandedAppointmentId === appt.id ? (
+                  <div className="appointment-insight">
+                    <p><strong>Checked in:</strong> {formatDateTime(appt.checkedInAt)}</p>
+                    <p><strong>Completed:</strong> {formatDateTime(appt.completedAt)}</p>
+                    <p><strong>Cancelled:</strong> {formatDateTime(appt.cancelledAt)}</p>
+
+                    {isTreatmentAppointmentType(appt.appointmentType) ? (
+                      <>
+                        <p><strong>Anamnesis:</strong> {appt.anamnesis || 'Unavailable'}</p>
+                        <p><strong>Status observation:</strong> {appt.statusObservation || 'Unavailable'}</p>
+                        <p><strong>Therapy:</strong> {appt.therapy || 'Unavailable'}</p>
+                        <p><strong>Diagnosed condition:</strong> {appt.diagnosedCondition || 'Unavailable'}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p><strong>Preventive notes:</strong> {appt.preventiveNotes || 'Unavailable'}</p>
+                        <p><strong>Growth/development:</strong> {appt.childDevelopmentNotes || 'Unavailable'}</p>
+                        <p><strong>Vaccination:</strong> {appt.isVaccination ? 'Yes' : 'No'}</p>
+                        {appt.vaccinationId ? <p><strong>Vaccination ID:</strong> {appt.vaccinationId}</p> : null}
+                        {appt.vaccinationNotes ? <p><strong>Vaccination notes:</strong> {appt.vaccinationNotes}</p> : null}
+                      </>
+                    )}
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
