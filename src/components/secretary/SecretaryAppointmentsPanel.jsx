@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   cancelAppointment,
   checkInAppointment,
+  fetchClinicScheduleForDate,
   fetchDoctorAppointments,
   fetchDoctors,
   fetchPatientAppointments,
@@ -25,10 +26,13 @@ function SecretaryAppointmentsPanel({ session }) {
   const [fromDate, setFromDate] = useState(formatDateForInput(new Date()));
   const [toDate, setToDate] = useState(formatDateForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
   const [doctorAppointments, setDoctorAppointments] = useState([]);
+  const [clinicDate, setClinicDate] = useState(formatDateForInput(new Date()));
+  const [clinicAppointments, setClinicAppointments] = useState([]);
 
   const [isSearchingPatients, setIsSearchingPatients] = useState(false);
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
   const [isLoadingDoctorAppointments, setIsLoadingDoctorAppointments] = useState(false);
+  const [isLoadingClinicAppointments, setIsLoadingClinicAppointments] = useState(false);
   const [actionAppointmentId, setActionAppointmentId] = useState(null);
   const [cancelTargetAppointmentId, setCancelTargetAppointmentId] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -108,6 +112,40 @@ function SecretaryAppointmentsPanel({ session }) {
     };
   }, [session.token, selectedDoctorId, fromDate, toDate]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadClinicAppointments() {
+      if (!session.worker?.clinicId || !clinicDate) {
+        setClinicAppointments([]);
+        return;
+      }
+
+      setIsLoadingClinicAppointments(true);
+
+      try {
+        const response = await fetchClinicScheduleForDate(session.token, session.worker.clinicId, clinicDate);
+        if (!ignore) {
+          setClinicAppointments(response);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to load clinic appointments.');
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingClinicAppointments(false);
+        }
+      }
+    }
+
+    loadClinicAppointments();
+
+    return () => {
+      ignore = true;
+    };
+  }, [clinicDate, session.token, session.worker?.clinicId]);
+
   async function refreshPatientAppointments(patientId) {
     const response = await fetchPatientAppointments(session.token, patientId);
     setPatientAppointments(response);
@@ -121,6 +159,16 @@ function SecretaryAppointmentsPanel({ session }) {
 
     const response = await fetchDoctorAppointments(session.token, selectedDoctorId, fromDate, toDate);
     setDoctorAppointments(response);
+  }
+
+  async function refreshClinicAppointments() {
+    if (!session.worker?.clinicId || !clinicDate) {
+      setClinicAppointments([]);
+      return;
+    }
+
+    const response = await fetchClinicScheduleForDate(session.token, session.worker.clinicId, clinicDate);
+    setClinicAppointments(response);
   }
 
   function getAppointmentReference(appointmentId) {
@@ -176,6 +224,7 @@ function SecretaryAppointmentsPanel({ session }) {
         await refreshPatientAppointments(selectedPatient.id);
       }
       await refreshDoctorAppointments();
+      await refreshClinicAppointments();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to check in appointment.');
     } finally {
@@ -226,6 +275,7 @@ function SecretaryAppointmentsPanel({ session }) {
         await refreshPatientAppointments(selectedPatient.id);
       }
       await refreshDoctorAppointments();
+      await refreshClinicAppointments();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to cancel appointment.');
     } finally {
@@ -247,6 +297,7 @@ function SecretaryAppointmentsPanel({ session }) {
         await refreshPatientAppointments(selectedPatient.id);
       }
       await refreshDoctorAppointments();
+      await refreshClinicAppointments();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to mark no-show.');
     } finally {
@@ -367,6 +418,32 @@ function SecretaryAppointmentsPanel({ session }) {
             <AppointmentLifecycleList
               actionAppointmentId={actionAppointmentId}
               appointments={doctorAppointments}
+              onCancel={handleCancel}
+              onCheckIn={handleCheckIn}
+              onNoShow={handleNoShow}
+            />
+          ) : null}
+        </article>
+
+        <article className="workspace-panel secretary-card-wide">
+          <p className="eyebrow">Clinic lookup</p>
+          <h2>Clinic schedule for day</h2>
+          <div className="admin-form">
+            <label>
+              <span>Date</span>
+              <input
+                onChange={(event) => setClinicDate(event.target.value)}
+                type="date"
+                value={clinicDate}
+              />
+            </label>
+          </div>
+
+          {isLoadingClinicAppointments ? <p>Loading clinic appointments...</p> : null}
+          {!isLoadingClinicAppointments ? (
+            <AppointmentLifecycleList
+              actionAppointmentId={actionAppointmentId}
+              appointments={clinicAppointments}
               onCancel={handleCancel}
               onCheckIn={handleCheckIn}
               onNoShow={handleNoShow}

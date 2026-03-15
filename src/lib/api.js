@@ -1,10 +1,11 @@
 export { getApiBaseUrlLabel } from './api/request';
 export { loginWorker } from './api/auth';
 export { fetchCurrentWorker, fetchWorkers, createWorker, updateWorker, setWorkerActive, fetchDoctors } from './api/workers';
-export { fetchClinics } from './api/clinics';
-export { searchPatients, createPatient, fetchPatientAppointments } from './api/patients';
+export { fetchClinics, fetchCities, createClinic, updateClinic, deleteClinic } from './api/clinics';
+export { searchPatients, createPatient, updatePatient, fetchPatientAppointments } from './api/patients';
 export {
   fetchDoctorAppointments,
+  fetchClinicScheduleForDate,
   bookAppointment,
   checkInAppointment,
   cancelAppointment,

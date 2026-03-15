@@ -60,6 +60,15 @@ export async function fetchDoctorScheduleForDate(token, doctorId, date) {
   });
 }
 
+export async function fetchClinicScheduleForDate(token, clinicId, date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+
+  return request(`/Appointments/clinic/${clinicId}${query}`, {
+    method: 'GET',
+    headers: authorizedHeaders(token),
+  });
+}
+
 export async function completeTreatmentAppointment(token, appointmentId, payload) {
   return request(`/Appointments/${appointmentId}/complete-treatment`, {
     method: 'PUT',

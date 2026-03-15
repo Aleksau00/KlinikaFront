@@ -17,6 +17,14 @@ export async function createPatient(token, payload) {
   });
 }
 
+export async function updatePatient(token, patientId, payload) {
+  return request(`/Patients/${patientId}`, {
+    method: 'PUT',
+    headers: authorizedHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchPatientAppointments(token, patientId) {
   return request(`/Appointments/patient/${patientId}`, {
     method: 'GET',

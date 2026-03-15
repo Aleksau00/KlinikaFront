@@ -287,7 +287,7 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
           {section === 'account' ? <AccountPanel onRefreshSession={onRefreshSession} roleSlug={roleSlug} session={session} /> : null}
           {section === 'admin-desk' ? <AdminDeskPanel session={session} /> : null}
           {section === 'staff' ? <AdminStaffPanel session={session} /> : null}
-          {section === 'clinics' ? <AdminClinicsPanel /> : null}
+          {section === 'clinics' ? <AdminClinicsPanel session={session} /> : null}
           {section === 'desk-scheduling' ? <SecretarySchedulingPanel session={session} /> : null}
           {section === 'desk-appointments' ? <SecretaryAppointmentsPanel session={session} /> : null}
           {section === 'my-slots' ? <DoctorSlotsPanel session={session} /> : null}

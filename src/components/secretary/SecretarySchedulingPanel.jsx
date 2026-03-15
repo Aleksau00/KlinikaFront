@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
-import { bookAppointment, createGuardian, createPatient, fetchDoctorAvailableSlots, fetchDoctors, searchGuardians, searchPatients } from '../../lib/api';
+import {
+  bookAppointment,
+  createGuardian,
+  createPatient,
+  fetchDoctorAvailableSlots,
+  fetchDoctors,
+  fetchPatientAllergens,
+  searchGuardians,
+  searchPatients,
+  updatePatient,
+} from '../../lib/api';
 import { initialPatientForm } from '../../config/roles';
 import { formatDateForInput } from '../../lib/appointments';
 import { formatPatientProfileSummary, formatSlotReference } from '../../lib/display';
@@ -38,8 +48,18 @@ function SecretarySchedulingPanel({ session }) {
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [selectedPatientAllergens, setSelectedPatientAllergens] = useState([]);
+  const [isLoadingSelectedPatientAllergens, setIsLoadingSelectedPatientAllergens] = useState(false);
   const [showCreatePatient, setShowCreatePatient] = useState(false);
   const [patientFormState, setPatientFormState] = useState(initialPatientForm);
+  const [showEditPatient, setShowEditPatient] = useState(false);
+  const [editPatientState, setEditPatientState] = useState(initialPatientForm);
+  const [isUpdatingPatient, setIsUpdatingPatient] = useState(false);
+
+  const [editGuardianSearchTerm, setEditGuardianSearchTerm] = useState('');
+  const [editGuardianResults, setEditGuardianResults] = useState([]);
+  const [selectedEditGuardian, setSelectedEditGuardian] = useState(null);
+  const [isSearchingEditGuardian, setIsSearchingEditGuardian] = useState(false);
 
   const [appointmentType, setAppointmentType] = useState('0');
 
@@ -139,6 +159,40 @@ function SecretarySchedulingPanel({ session }) {
     };
   }, [session.token, selectedDoctorId, fromDate, toDate]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadSelectedPatientAllergens() {
+      if (!selectedPatient?.id) {
+        setSelectedPatientAllergens([]);
+        return;
+      }
+
+      setIsLoadingSelectedPatientAllergens(true);
+
+      try {
+        const response = await fetchPatientAllergens(session.token, selectedPatient.id);
+        if (!ignore) {
+          setSelectedPatientAllergens(response);
+        }
+      } catch {
+        if (!ignore) {
+          setSelectedPatientAllergens([]);
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingSelectedPatientAllergens(false);
+        }
+      }
+    }
+
+    loadSelectedPatientAllergens();
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedPatient?.id, session.token]);
+
   async function handleSearchPatients(event) {
     event.preventDefault();
     setIsSearchingPatients(true);
@@ -164,6 +218,109 @@ function SecretarySchedulingPanel({ session }) {
     setErrorMessage('');
     setStatusMessage('');
     playUiFeedbackSound('select');
+  }
+
+  function startEditingSelectedPatient() {
+    if (!selectedPatient) {
+      setErrorMessage('Select a patient first.');
+      return;
+    }
+
+    setEditPatientState({
+      firstName: selectedPatient.firstName || '',
+      lastName: selectedPatient.lastName || '',
+      email: selectedPatient.email || '',
+      phoneNumber: selectedPatient.phoneNumber || '',
+      jmbg: selectedPatient.jmbg || '',
+      gender: selectedPatient.gender || 'F',
+      dateOfBirth: selectedPatient.dateOfBirth ? String(selectedPatient.dateOfBirth).slice(0, 10) : '',
+      bloodType: selectedPatient.bloodType || '',
+    });
+    setSelectedEditGuardian(
+      selectedPatient.guardianId
+        ? {
+          id: selectedPatient.guardianId,
+          firstName: selectedPatient.guardianName || 'Linked guardian',
+          lastName: '',
+        }
+        : null,
+    );
+    setEditGuardianSearchTerm('');
+    setEditGuardianResults([]);
+    setShowEditPatient(true);
+    setErrorMessage('');
+    setStatusMessage('');
+  }
+
+  function updateEditPatientField(field, value) {
+    setEditPatientState((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function handleSearchEditGuardian() {
+    if (!editGuardianSearchTerm.trim()) {
+      return;
+    }
+
+    setIsSearchingEditGuardian(true);
+
+    try {
+      const response = await searchGuardians(session.token, editGuardianSearchTerm.trim());
+      setEditGuardianResults(response);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to search guardians.');
+    } finally {
+      setIsSearchingEditGuardian(false);
+    }
+  }
+
+  async function handleUpdatePatient(event) {
+    event.preventDefault();
+
+    if (!selectedPatient?.id) {
+      setErrorMessage('Select a patient first.');
+      return;
+    }
+
+    const minor = (getAge(editPatientState.dateOfBirth) ?? 99) < 18;
+    if (minor && !selectedEditGuardian?.id) {
+      setErrorMessage('A guardian must be linked for patients under 18.');
+      return;
+    }
+
+    setIsUpdatingPatient(true);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    const payload = {
+      firstName: editPatientState.firstName,
+      lastName: editPatientState.lastName,
+      email: editPatientState.email || null,
+      phoneNumber: editPatientState.phoneNumber,
+      jmbg: editPatientState.jmbg,
+      gender: editPatientState.gender,
+      dateOfBirth: editPatientState.dateOfBirth,
+      bloodType: editPatientState.bloodType,
+      guardianId: selectedEditGuardian?.id || null,
+      addressId: null,
+    };
+
+    try {
+      const updated = await updatePatient(session.token, selectedPatient.id, payload);
+      const refreshedPatients = await searchPatients(session.token, updated.jmbg || selectedPatient.jmbg);
+      setPatients(refreshedPatients);
+      const refreshed = refreshedPatients.find((p) => p.id === updated.id) || updated;
+      setSelectedPatient(refreshed);
+      setShowEditPatient(false);
+      setStatusMessage(`Patient ${updated.firstName} ${updated.lastName} updated.`);
+      playUiFeedbackSound('edited');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to update patient.');
+    } finally {
+      setIsUpdatingPatient(false);
+    }
   }
 
   async function handleSearchGuardian() {
@@ -265,6 +422,12 @@ function SecretarySchedulingPanel({ session }) {
   async function handleBookAppointment() {
     if (!selectedPatient?.id || !selectedSlotId) {
       setErrorMessage('Select both a patient and an available slot before booking.');
+      return;
+    }
+
+    const selectedPatientIsMinor = (getAge(selectedPatient.dateOfBirth) ?? 99) < 18;
+    if (selectedPatientIsMinor && !selectedPatient.guardianId) {
+      setErrorMessage('Cannot book appointment: selected minor patient has no guardian linked. Edit patient and link a guardian first.');
       return;
     }
 
@@ -386,9 +549,14 @@ function SecretarySchedulingPanel({ session }) {
               <p className="eyebrow">Patients</p>
               <h2>Find or create patient</h2>
             </div>
-            <button className="ghost-button" onClick={() => setShowCreatePatient((current) => !current)} type="button">
-              {showCreatePatient ? 'Close form' : 'New patient'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="ghost-button" onClick={startEditingSelectedPatient} type="button">
+                Edit selected
+              </button>
+              <button className="ghost-button" onClick={() => setShowCreatePatient((current) => !current)} type="button">
+                {showCreatePatient ? 'Close form' : 'New patient'}
+              </button>
+            </div>
           </div>
 
           <form className="auth-form" onSubmit={handleSearchPatients}>
@@ -586,6 +754,133 @@ function SecretarySchedulingPanel({ session }) {
             </form>
           ) : null}
 
+          {showEditPatient ? (
+            <form className="admin-form" onSubmit={handleUpdatePatient}>
+              <div className="panel-heading-row">
+                <div>
+                  <p className="eyebrow">Patient maintenance</p>
+                  <h3>Edit selected patient</h3>
+                </div>
+                <button className="ghost-button" onClick={() => setShowEditPatient(false)} type="button">
+                  Close
+                </button>
+              </div>
+              <div className="form-grid">
+                <label>
+                  <span>First name</span>
+                  <input onChange={(event) => updateEditPatientField('firstName', event.target.value)} required type="text" value={editPatientState.firstName} />
+                </label>
+                <label>
+                  <span>Last name</span>
+                  <input onChange={(event) => updateEditPatientField('lastName', event.target.value)} required type="text" value={editPatientState.lastName} />
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input onChange={(event) => updateEditPatientField('email', event.target.value)} type="email" value={editPatientState.email} />
+                </label>
+                <label>
+                  <span>Phone number</span>
+                  <input onChange={(event) => updateEditPatientField('phoneNumber', event.target.value)} required type="text" value={editPatientState.phoneNumber} />
+                </label>
+                <label>
+                  <span>JMBG</span>
+                  <input onChange={(event) => updateEditPatientField('jmbg', event.target.value)} required type="text" value={editPatientState.jmbg} />
+                </label>
+                <label>
+                  <span>Gender</span>
+                  <select onChange={(event) => updateEditPatientField('gender', event.target.value)} value={editPatientState.gender}>
+                    <option value="F">Female</option>
+                    <option value="M">Male</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Date of birth</span>
+                  <input onChange={(event) => updateEditPatientField('dateOfBirth', event.target.value)} required type="date" value={editPatientState.dateOfBirth} />
+                </label>
+                <label>
+                  <span>Blood type</span>
+                  <input onChange={(event) => updateEditPatientField('bloodType', event.target.value)} required type="text" value={editPatientState.bloodType} />
+                </label>
+              </div>
+
+              <div className="guardian-search-section">
+                <div className="panel-heading-row">
+                  <div>
+                    <p className="eyebrow">Guardian link</p>
+                    <p className="muted-hint">Use this to link or unlink a guardian for the selected patient.</p>
+                  </div>
+                </div>
+
+                <div className="form-inline-search">
+                  <input
+                    onChange={(event) => setEditGuardianSearchTerm(event.target.value)}
+                    placeholder="Search guardian by name, email, or phone"
+                    type="text"
+                    value={editGuardianSearchTerm}
+                  />
+                  <button
+                    className="ghost-button"
+                    disabled={isSearchingEditGuardian || !editGuardianSearchTerm.trim()}
+                    onClick={handleSearchEditGuardian}
+                    type="button"
+                  >
+                    {isSearchingEditGuardian ? 'Searching...' : 'Find guardian'}
+                  </button>
+                </div>
+
+                {editGuardianResults.length > 0 ? (
+                  <div className="data-list">
+                    {editGuardianResults.map((g) => (
+                      <article className={`data-row${selectedEditGuardian?.id === g.id ? ' data-row-selected' : ''}`} key={g.id}>
+                        <div>
+                          <strong>{g.firstName} {g.lastName}</strong>
+                          <p>{g.email || g.phoneNumber || 'No contact details'}</p>
+                        </div>
+                        <div className="row-actions">
+                          <button
+                            className={selectedEditGuardian?.id === g.id ? 'primary-button' : 'ghost-button'}
+                            onClick={() => setSelectedEditGuardian((current) => (current?.id === g.id ? null : g))}
+                            type="button"
+                          >
+                            {selectedEditGuardian?.id === g.id ? 'Selected ✓' : 'Select'}
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+
+                {selectedEditGuardian ? (
+                  <p className="info-banner">
+                    {'Guardian linked: '}
+                    {selectedEditGuardian.firstName} {selectedEditGuardian.lastName}
+                    {'  '}
+                    <button
+                      className="ghost-button"
+                      onClick={() => setSelectedEditGuardian(null)}
+                      style={{ fontSize: '0.8rem', padding: '2px 10px' }}
+                      type="button"
+                    >
+                      Unlink
+                    </button>
+                  </p>
+                ) : null}
+              </div>
+
+              {(getAge(editPatientState.dateOfBirth) ?? 99) < 18 && !selectedEditGuardian ? (
+                <p className="warn-hint">Minor patients must have a linked guardian before you can save changes.</p>
+              ) : null}
+
+              <button
+                className="primary-button"
+                disabled={isUpdatingPatient || ((getAge(editPatientState.dateOfBirth) ?? 99) < 18 && !selectedEditGuardian)}
+                type="submit"
+              >
+                {isUpdatingPatient ? 'Saving...' : 'Save patient changes'}
+              </button>
+            </form>
+          ) : null}
+
           <div className="data-list data-list-scroll">
             {patients.map((patient) => (
               <article className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`} key={patient.id}>
@@ -622,6 +917,27 @@ function SecretarySchedulingPanel({ session }) {
           <p>
             Selected slot: {formatSlotReference(selectedSlot)}
           </p>
+
+          {selectedPatient ? (
+            <div className="muted-hint" style={{ marginBottom: '0.75rem' }}>
+              <p>Blood type: {selectedPatient.bloodType || 'Unavailable'}</p>
+              <p>
+                Guardian: {selectedPatient.guardianName || (selectedPatient.guardianId ? `Guardian #${selectedPatient.guardianId}` : 'Not linked')}
+              </p>
+              <p>No-show count: {selectedPatient.noShowCount ?? 0}</p>
+              <p>
+                Allergens:{' '}
+                {isLoadingSelectedPatientAllergens
+                  ? 'Loading...'
+                  : selectedPatientAllergens.length > 0
+                    ? selectedPatientAllergens.map((item) => item.allergenName).join(', ')
+                    : 'None recorded'}
+              </p>
+              {(getAge(selectedPatient.dateOfBirth) ?? 99) < 18 && !selectedPatient.guardianId ? (
+                <p className="warn-hint" style={{ marginTop: '0.4rem' }}>Minor has no guardian linked. Booking is blocked until guardian is linked.</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="admin-form">
             <label>
