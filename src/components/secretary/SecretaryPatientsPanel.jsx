@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   createGuardian,
   createPatient,
-  fetchGuardianById,
   searchGuardians,
   searchPatients,
-  updateGuardian,
   updatePatient,
 } from '../../lib/api';
 import { initialPatientForm } from '../../config/roles';
@@ -55,26 +53,10 @@ function SecretaryPatientsPanel({ session }) {
   const [editGuardianSearchTerm, setEditGuardianSearchTerm] = useState('');
   const [editGuardianResults, setEditGuardianResults] = useState([]);
 
-  const [standaloneGuardianSearchTerm, setStandaloneGuardianSearchTerm] = useState('');
-  const [standaloneGuardianResults, setStandaloneGuardianResults] = useState([]);
-  const [standaloneSelectedGuardian, setStandaloneSelectedGuardian] = useState(null);
-  const [standaloneGuardianEditForm, setStandaloneGuardianEditForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phoneNumber: '',
-    jmbg: '',
-    gender: 'F',
-    dateOfBirth: '',
-  });
-
   const [isSearchingPatients, setIsSearchingPatients] = useState(false);
   const [isCreatingPatient, setIsCreatingPatient] = useState(false);
   const [isUpdatingPatient, setIsUpdatingPatient] = useState(false);
   const [isSearchingEditGuardian, setIsSearchingEditGuardian] = useState(false);
-  const [isSearchingStandaloneGuardian, setIsSearchingStandaloneGuardian] = useState(false);
-  const [isLoadingStandaloneGuardianDetails, setIsLoadingStandaloneGuardianDetails] = useState(false);
-  const [isSavingStandaloneGuardian, setIsSavingStandaloneGuardian] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -82,83 +64,25 @@ function SecretaryPatientsPanel({ session }) {
   useEffect(() => {
     let ignore = false;
 
-    async function loadAllGuardians() {
+    async function loadAllPatients() {
       try {
-        const response = await searchGuardians(session.token, '');
+        const response = await searchPatients(session.token, '');
         if (!ignore) {
-          setStandaloneGuardianResults(response);
+          setPatients(response);
         }
       } catch {
         if (!ignore) {
-          setStandaloneGuardianResults([]);
+          setPatients([]);
         }
       }
     }
 
-    loadAllGuardians();
+    loadAllPatients();
 
     return () => {
       ignore = true;
     };
   }, [session.token]);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadStandaloneGuardian() {
-      if (!standaloneSelectedGuardian?.id) {
-        setStandaloneGuardianEditForm({
-          firstName: '',
-          lastName: '',
-          email: '',
-          phoneNumber: '',
-          jmbg: '',
-          gender: 'F',
-          dateOfBirth: '',
-        });
-        return;
-      }
-
-      setIsLoadingStandaloneGuardianDetails(true);
-      try {
-        const guardian = await fetchGuardianById(session.token, standaloneSelectedGuardian.id);
-        if (!ignore) {
-          setStandaloneSelectedGuardian(guardian);
-          setStandaloneGuardianEditForm({
-            firstName: guardian.firstName || '',
-            lastName: guardian.lastName || '',
-            email: guardian.email || '',
-            phoneNumber: guardian.phoneNumber || '',
-            jmbg: guardian.jmbg || '',
-            gender: guardian.gender || 'F',
-            dateOfBirth: guardian.dateOfBirth ? String(guardian.dateOfBirth).slice(0, 10) : '',
-          });
-        }
-      } catch {
-        if (!ignore) {
-          setStandaloneGuardianEditForm({
-            firstName: '',
-            lastName: '',
-            email: '',
-            phoneNumber: '',
-            jmbg: '',
-            gender: 'F',
-            dateOfBirth: '',
-          });
-        }
-      } finally {
-        if (!ignore) {
-          setIsLoadingStandaloneGuardianDetails(false);
-        }
-      }
-    }
-
-    loadStandaloneGuardian();
-
-    return () => {
-      ignore = true;
-    };
-  }, [session.token, standaloneSelectedGuardian?.id]);
 
   function updatePatientFormField(field, value) {
     setPatientFormState((current) => ({
@@ -286,8 +210,8 @@ function SecretaryPatientsPanel({ session }) {
       const payload = {
         firstName: patientFormState.firstName,
         lastName: patientFormState.lastName,
-        email: patientFormState.email || null,
-        phoneNumber: patientFormState.phoneNumber,
+        email: patientFormState.email.trim() || null,
+        phoneNumber: patientFormState.phoneNumber.trim() || null,
         jmbg: patientFormState.jmbg,
         gender: patientFormState.gender,
         dateOfBirth: patientFormState.dateOfBirth,
@@ -326,20 +250,6 @@ function SecretaryPatientsPanel({ session }) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to search guardians.');
     } finally {
       setIsSearchingEditGuardian(false);
-    }
-  }
-
-  async function handleSearchStandaloneGuardians(event) {
-    event.preventDefault();
-
-    setIsSearchingStandaloneGuardian(true);
-    try {
-      const response = await searchGuardians(session.token, standaloneGuardianSearchTerm.trim());
-      setStandaloneGuardianResults(response);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to search guardians.');
-    } finally {
-      setIsSearchingStandaloneGuardian(false);
     }
   }
 
@@ -389,43 +299,6 @@ function SecretaryPatientsPanel({ session }) {
     }
   }
 
-  async function handleSaveStandaloneGuardian(event) {
-    event.preventDefault();
-
-    if (!standaloneSelectedGuardian?.id) {
-      return;
-    }
-
-    setIsSavingStandaloneGuardian(true);
-    setErrorMessage('');
-    setStatusMessage('');
-
-    try {
-      const updatedGuardian = await updateGuardian(session.token, standaloneSelectedGuardian.id, {
-        firstName: standaloneGuardianEditForm.firstName,
-        lastName: standaloneGuardianEditForm.lastName,
-        email: standaloneGuardianEditForm.email || null,
-        phoneNumber: standaloneGuardianEditForm.phoneNumber,
-        jmbg: standaloneGuardianEditForm.jmbg,
-        gender: standaloneGuardianEditForm.gender,
-        dateOfBirth: standaloneGuardianEditForm.dateOfBirth,
-        addressId: standaloneSelectedGuardian.addressId || null,
-      });
-
-      setStandaloneSelectedGuardian(updatedGuardian);
-      setStatusMessage(`Guardian ${updatedGuardian.firstName} ${updatedGuardian.lastName} updated.`);
-      playUiFeedbackSound('edited');
-
-      setStandaloneGuardianResults((current) => current.map((guardian) => (
-        guardian.id === updatedGuardian.id ? updatedGuardian : guardian
-      )));
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to update guardian.');
-    } finally {
-      setIsSavingStandaloneGuardian(false);
-    }
-  }
-
   const isPatientMinor = (getAge(patientFormState.dateOfBirth) ?? 99) < 18;
   const canCreatePatient = !isPatientMinor || selectedGuardian !== null;
 
@@ -435,13 +308,13 @@ function SecretaryPatientsPanel({ session }) {
         <div className="panel-heading-row">
           <div>
             <p className="eyebrow">Patients workspace</p>
-            <h2>Patient records and guardians</h2>
+            <h2>Patient records</h2>
           </div>
           <button className="ghost-button" onClick={() => setShowCreatePatient((current) => !current)} type="button">
             {showCreatePatient ? 'Close new patient' : 'New patient'}
           </button>
         </div>
-        <p>Use this tab for patient maintenance: search, create, edit, guardian linking, and guardian contact-detail updates.</p>
+        <p>Use this tab for patient search, registration, and patient record updates including guardian linking.</p>
       </article>
 
       {statusMessage ? <p className="info-banner">{statusMessage}</p> : null}
@@ -486,160 +359,6 @@ function SecretaryPatientsPanel({ session }) {
         </div>
       </article>
 
-      <article className="workspace-panel">
-        <p className="eyebrow">Guardian lookup</p>
-        <h2>Find guardian</h2>
-        <form className="auth-form" onSubmit={handleSearchStandaloneGuardians}>
-          <label>
-            <span>Search term</span>
-            <input
-              onChange={(event) => setStandaloneGuardianSearchTerm(event.target.value)}
-              placeholder="Name, email, phone, guardian record, or leave empty for all"
-              type="text"
-              value={standaloneGuardianSearchTerm}
-            />
-          </label>
-          <button
-            className="primary-button"
-            disabled={isSearchingStandaloneGuardian}
-            type="submit"
-          >
-            {isSearchingStandaloneGuardian ? 'Searching...' : 'Search guardians'}
-          </button>
-        </form>
-
-        {standaloneGuardianResults.length > 0 ? (
-          <div className="data-list data-list-scroll" style={{ marginBottom: '0.75rem' }}>
-            {standaloneGuardianResults.map((guardian) => (
-              <article className={`data-row${standaloneSelectedGuardian?.id === guardian.id ? ' data-row-selected' : ''}`} key={guardian.id}>
-                <div>
-                  <strong>{guardian.firstName} {guardian.lastName}</strong>
-                  <p>{guardian.email || guardian.phoneNumber || 'No contact details'}</p>
-                </div>
-                <div className="data-meta">
-                  <span>JMBG: {guardian.jmbg}</span>
-                </div>
-                <div className="row-actions">
-                  <button
-                    className={standaloneSelectedGuardian?.id === guardian.id ? 'primary-button' : 'ghost-button'}
-                    onClick={() => {
-                      setStandaloneSelectedGuardian(guardian);
-                      playUiFeedbackSound('select');
-                    }}
-                    type="button"
-                  >
-                    {standaloneSelectedGuardian?.id === guardian.id ? 'Selected' : 'Select'}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : null}
-
-      </article>
-
-      {standaloneSelectedGuardian ? (
-        <article className="workspace-panel">
-          <p className="eyebrow">Guardian maintenance</p>
-          <h2>Edit selected guardian</h2>
-          <form className="admin-form" onSubmit={handleSaveStandaloneGuardian}>
-            {isLoadingStandaloneGuardianDetails ? <p>Loading guardian details...</p> : null}
-            {!isLoadingStandaloneGuardianDetails ? (
-              <>
-                <div className="form-grid">
-                  <label>
-                    <span>First name</span>
-                    <input
-                      onChange={(event) => setStandaloneGuardianEditForm((current) => ({ ...current, firstName: event.target.value }))}
-                      required
-                      type="text"
-                      value={standaloneGuardianEditForm.firstName}
-                    />
-                  </label>
-                  <label>
-                    <span>Last name</span>
-                    <input
-                      onChange={(event) => setStandaloneGuardianEditForm((current) => ({ ...current, lastName: event.target.value }))}
-                      required
-                      type="text"
-                      value={standaloneGuardianEditForm.lastName}
-                    />
-                  </label>
-                  <label>
-                    <span>Email</span>
-                    <input
-                      onChange={(event) => setStandaloneGuardianEditForm((current) => ({ ...current, email: event.target.value }))}
-                      type="email"
-                      value={standaloneGuardianEditForm.email}
-                    />
-                  </label>
-                  <label>
-                    <span>Phone number</span>
-                    <input
-                      onChange={(event) => setStandaloneGuardianEditForm((current) => ({ ...current, phoneNumber: event.target.value }))}
-                      required
-                      type="text"
-                      value={standaloneGuardianEditForm.phoneNumber}
-                    />
-                  </label>
-                  <label>
-                    <span>JMBG</span>
-                    <input
-                      onChange={(event) => setStandaloneGuardianEditForm((current) => ({ ...current, jmbg: event.target.value }))}
-                      required
-                      type="text"
-                      value={standaloneGuardianEditForm.jmbg}
-                    />
-                  </label>
-                  <label>
-                    <span>Gender</span>
-                    <select
-                      onChange={(event) => setStandaloneGuardianEditForm((current) => ({ ...current, gender: event.target.value }))}
-                      value={standaloneGuardianEditForm.gender}
-                    >
-                      <option value="F">Female</option>
-                      <option value="M">Male</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Date of birth</span>
-                    <input
-                      onChange={(event) => setStandaloneGuardianEditForm((current) => ({ ...current, dateOfBirth: event.target.value }))}
-                      required
-                      type="date"
-                      value={standaloneGuardianEditForm.dateOfBirth}
-                    />
-                  </label>
-                </div>
-                <div className="row-actions">
-                  <button className="primary-button" disabled={isSavingStandaloneGuardian} type="submit">
-                    {isSavingStandaloneGuardian ? 'Saving...' : 'Save guardian changes'}
-                  </button>
-                  <button
-                    className="ghost-button"
-                    onClick={() => {
-                      setStandaloneSelectedGuardian(null);
-                      setStandaloneGuardianEditForm({
-                        firstName: '',
-                        lastName: '',
-                        email: '',
-                        phoneNumber: '',
-                        jmbg: '',
-                        gender: 'F',
-                        dateOfBirth: '',
-                      });
-                    }}
-                    type="button"
-                  >
-                    Clear
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </form>
-        </article>
-      ) : null}
-
       {showCreatePatient ? (
         <article className="workspace-panel">
           <p className="eyebrow">Patient registration</p>
@@ -660,7 +379,7 @@ function SecretaryPatientsPanel({ session }) {
               </label>
               <label>
                 <span>Phone number</span>
-                <input onChange={(event) => updatePatientFormField('phoneNumber', event.target.value)} required type="text" value={patientFormState.phoneNumber} />
+                <input onChange={(event) => updatePatientFormField('phoneNumber', event.target.value)} type="text" value={patientFormState.phoneNumber} />
               </label>
               <label>
                 <span>JMBG</span>

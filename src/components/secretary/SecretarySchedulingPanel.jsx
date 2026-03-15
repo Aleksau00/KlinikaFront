@@ -273,8 +273,8 @@ function SecretarySchedulingPanel({ session }) {
     const payload = {
       firstName: patientFormState.firstName,
       lastName: patientFormState.lastName,
-      email: patientFormState.email || null,
-      phoneNumber: patientFormState.phoneNumber,
+      email: patientFormState.email.trim() || null,
+      phoneNumber: patientFormState.phoneNumber.trim() || null,
       jmbg: patientFormState.jmbg,
       gender: patientFormState.gender,
       dateOfBirth: patientFormState.dateOfBirth,
@@ -474,7 +474,7 @@ function SecretarySchedulingPanel({ session }) {
                 </label>
                 <label>
                   <span>Phone number</span>
-                  <input onChange={(event) => updatePatientFormField('phoneNumber', event.target.value)} required type="text" value={patientFormState.phoneNumber} />
+                  <input onChange={(event) => updatePatientFormField('phoneNumber', event.target.value)} type="text" value={patientFormState.phoneNumber} />
                 </label>
                 <label>
                   <span>JMBG</span>

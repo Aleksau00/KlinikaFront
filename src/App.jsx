@@ -21,6 +21,7 @@ import PortalChooser from './components/portal/PortalChooser';
 import RoleLoginScreen from './components/portal/RoleLoginScreen';
 import RoleOverview from './components/portal/RoleOverview';
 import SecretaryAppointmentsPanel from './components/secretary/SecretaryAppointmentsPanel';
+import SecretaryGuardiansPanel from './components/secretary/SecretaryGuardiansPanel';
 import SecretaryPatientsPanel from './components/secretary/SecretaryPatientsPanel';
 import SecretarySchedulingPanel from './components/secretary/SecretarySchedulingPanel';
 import DoctorSlotsPanel from './components/doctor/DoctorSlotsPanel';
@@ -291,6 +292,7 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
           {section === 'clinics' ? <AdminClinicsPanel session={session} /> : null}
           {section === 'desk-scheduling' ? <SecretarySchedulingPanel session={session} /> : null}
           {section === 'desk-patients' ? <SecretaryPatientsPanel session={session} /> : null}
+          {section === 'desk-guardians' ? <SecretaryGuardiansPanel session={session} /> : null}
           {section === 'desk-appointments' ? <SecretaryAppointmentsPanel session={session} /> : null}
           {section === 'my-slots' ? <DoctorSlotsPanel session={session} /> : null}
           {section === 'my-appointments' ? <DoctorAppointmentsPanel session={session} /> : null}
@@ -353,8 +355,14 @@ function getPortalNav(roleSlug) {
       {
         key: 'desk-patients',
         label: 'Desk patients',
-        description: 'Patient record updates and guardian maintenance',
+        description: 'Patient record updates and guardian linking',
         path: `${basePath}/desk-patients`,
+      },
+      {
+        key: 'desk-guardians',
+        label: 'Desk guardians',
+        description: 'Guardian search, registration, and maintenance',
+        path: `${basePath}/desk-guardians`,
       },
       {
         key: 'desk-appointments',
