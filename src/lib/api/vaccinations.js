@@ -1,5 +1,12 @@
 import { authorizedHeaders, request } from './request';
 
+export async function fetchVaccinations(token) {
+  return request('/Vaccinations', {
+    method: 'GET',
+    headers: authorizedHeaders(token),
+  });
+}
+
 export async function fetchPatientVaccinationRecords(token, patientId) {
   return request(`/Vaccinations/records/patient/${patientId}`, {
     method: 'GET',
