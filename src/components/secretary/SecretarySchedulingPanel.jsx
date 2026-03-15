@@ -36,6 +36,21 @@ const initialGuardianForm = {
   dateOfBirth: '1985-01-01',
 };
 
+function isSlotInPast(slot) {
+  if (!slot?.date || !slot?.startTime) {
+    return false;
+  }
+
+  const startTime = String(slot.startTime).slice(0, 8);
+  const slotStart = new Date(`${slot.date}T${startTime}`);
+
+  if (Number.isNaN(slotStart.getTime())) {
+    return false;
+  }
+
+  return slotStart.getTime() < Date.now();
+}
+
 function SecretarySchedulingPanel({ session }) {
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -125,11 +140,15 @@ function SecretarySchedulingPanel({ session }) {
         if (!ignore) {
           setSlots(response);
           setSelectedSlotId((current) => {
+            const firstBookableSlot = response.find((slot) => !isSlotInPast(slot));
+
             if (!current) {
-              return response[0]?.id || null;
+              return firstBookableSlot?.id || null;
             }
 
-            return response.some((slot) => slot.id === current) ? current : response[0]?.id || null;
+            return response.some((slot) => slot.id === current && !isSlotInPast(slot))
+              ? current
+              : firstBookableSlot?.id || null;
           });
         }
       } catch (error) {
@@ -313,6 +332,11 @@ function SecretarySchedulingPanel({ session }) {
       return;
     }
 
+    if (!selectedSlot || isSlotInPast(selectedSlot)) {
+      setErrorMessage('Cannot book appointment in the past. Select a current or future slot.');
+      return;
+    }
+
     const selectedPatientIsMinor = (getAge(selectedPatient.dateOfBirth) ?? 99) < 18;
     if (selectedPatientIsMinor && !selectedPatient.guardianId) {
       setErrorMessage('Cannot book appointment: selected minor patient has no guardian linked. Open Desk patients tab and link a guardian first.');
@@ -335,7 +359,7 @@ function SecretarySchedulingPanel({ session }) {
       playUiFeedbackSound('created');
       const freshSlots = await fetchDoctorAvailableSlots(session.token, selectedDoctorId, fromDate, toDate);
       setSlots(freshSlots);
-      setSelectedSlotId(freshSlots[0]?.id || null);
+      setSelectedSlotId(freshSlots.find((slot) => !isSlotInPast(slot))?.id || null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to book appointment.');
     } finally {
@@ -412,15 +436,17 @@ function SecretarySchedulingPanel({ session }) {
                         <p>{slot.date} {String(slot.startTime).slice(0, 5)} – {String(slot.endTime).slice(0, 5)}</p>
                       </div>
                       <div className="row-actions">
+                        {isSlotInPast(slot) ? <small className="warn-hint">Past slot</small> : null}
                         <button
                           className={selectedSlotId === slot.id ? 'primary-button' : 'ghost-button'}
+                          disabled={isSlotInPast(slot)}
                           onClick={() => {
                             setSelectedSlotId(slot.id);
                             playUiFeedbackSound('select');
                           }}
                           type="button"
                         >
-                          {selectedSlotId === slot.id ? 'Selected ✓' : 'Select'}
+                          {isSlotInPast(slot) ? 'Unavailable' : selectedSlotId === slot.id ? 'Selected ✓' : 'Select'}
                         </button>
                       </div>
                     </article>
