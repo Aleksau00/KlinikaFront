@@ -75,6 +75,6 @@ export const initialPatientForm = {
   phoneNumber: '',
   jmbg: '',
   gender: 'F',
-  dateOfBirth: '2000-01-01',
+  dateOfBirth: '1990-01-01',
   bloodType: 'A+',
 };

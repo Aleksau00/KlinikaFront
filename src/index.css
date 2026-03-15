@@ -964,6 +964,39 @@ input {
   justify-content: flex-end;
 }
 
+.warn-hint {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  color: #92400e;
+  background: rgba(255, 237, 213, 0.88);
+}
+
+.minor-indicator {
+  color: #92400e;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.guardian-search-section {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+
+.form-inline-search {
+  display: flex;
+  gap: 8px;
+}
+
+.form-inline-search input {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (max-width: 980px) {
   .hero-panel,
   .workspace-hero,

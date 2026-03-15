@@ -5,6 +5,18 @@ import { formatDateForInput } from '../../lib/appointments';
 import { formatPatientProfileSummary, formatSlotReference } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 
+function getAge(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const today = new Date();
+  const dob = new Date(dateOfBirth);
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
 function SecretarySchedulingPanel({ session }) {
   const [doctors, setDoctors] = useState([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -26,6 +38,11 @@ function SecretarySchedulingPanel({ session }) {
   const [isSearchingPatients, setIsSearchingPatients] = useState(false);
   const [isCreatingPatient, setIsCreatingPatient] = useState(false);
   const [isBookingAppointment, setIsBookingAppointment] = useState(false);
+
+  const [guardianSearchTerm, setGuardianSearchTerm] = useState('');
+  const [guardianResults, setGuardianResults] = useState([]);
+  const [selectedGuardian, setSelectedGuardian] = useState(null);
+  const [isSearchingGuardian, setIsSearchingGuardian] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -136,6 +153,19 @@ function SecretarySchedulingPanel({ session }) {
     playUiFeedbackSound('select');
   }
 
+  async function handleSearchGuardian() {
+    if (!guardianSearchTerm.trim()) return;
+    setIsSearchingGuardian(true);
+    try {
+      const response = await searchPatients(session.token, guardianSearchTerm.trim());
+      setGuardianResults(response.filter((p) => (getAge(p.dateOfBirth) ?? 0) >= 18));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to search for guardian.');
+    } finally {
+      setIsSearchingGuardian(false);
+    }
+  }
+
   function updatePatientFormField(field, value) {
     setPatientFormState((current) => ({
       ...current,
@@ -158,7 +188,7 @@ function SecretarySchedulingPanel({ session }) {
       gender: patientFormState.gender,
       dateOfBirth: patientFormState.dateOfBirth,
       bloodType: patientFormState.bloodType,
-      guardianId: null,
+      guardianId: selectedGuardian?.id ?? null,
       addressId: null,
     };
 
@@ -167,6 +197,9 @@ function SecretarySchedulingPanel({ session }) {
       setStatusMessage(`Patient ${created.firstName} ${created.lastName} created.`);
       playUiFeedbackSound('created');
       setPatientFormState(initialPatientForm);
+      setSelectedGuardian(null);
+      setGuardianResults([]);
+      setGuardianSearchTerm('');
       setShowCreatePatient(false);
 
       const refreshedPatients = await searchPatients(session.token, created.jmbg);
@@ -210,6 +243,9 @@ function SecretarySchedulingPanel({ session }) {
       setIsBookingAppointment(false);
     }
   }
+
+  const isPatientMinor = (getAge(patientFormState.dateOfBirth) ?? 99) < 18;
+  const canCreatePatient = !isPatientMinor || selectedGuardian !== null;
 
   return (
     <div className="portal-stack">
@@ -361,7 +397,55 @@ function SecretarySchedulingPanel({ session }) {
                   <input onChange={(event) => updatePatientFormField('bloodType', event.target.value)} required type="text" value={patientFormState.bloodType} />
                 </label>
               </div>
-              <button className="primary-button" disabled={isCreatingPatient} type="submit">
+              {isPatientMinor ? (
+                <div className="guardian-search-section">
+                  <p className="eyebrow">Guardian required</p>
+                  <p className="muted-hint">This patient is under 18. Search for and select an adult guardian from existing patient records.</p>
+                  <div className="form-inline-search">
+                    <input
+                      onChange={(event) => setGuardianSearchTerm(event.target.value)}
+                      placeholder="Search guardian by name, email, or phone"
+                      type="text"
+                      value={guardianSearchTerm}
+                    />
+                    <button
+                      className="ghost-button"
+                      disabled={isSearchingGuardian || !guardianSearchTerm.trim()}
+                      onClick={handleSearchGuardian}
+                      type="button"
+                    >
+                      {isSearchingGuardian ? 'Searching...' : 'Find guardian'}
+                    </button>
+                  </div>
+                  {guardianResults.length > 0 ? (
+                    <div className="data-list">
+                      {guardianResults.map((g) => (
+                        <article className={`data-row${selectedGuardian?.id === g.id ? ' data-row-selected' : ''}`} key={g.id}>
+                          <div>
+                            <strong>{g.firstName} {g.lastName}</strong>
+                            <p>{g.email || g.phoneNumber || 'No contact details'}</p>
+                          </div>
+                          <div className="row-actions">
+                            <button
+                              className={selectedGuardian?.id === g.id ? 'primary-button' : 'ghost-button'}
+                              onClick={() => setSelectedGuardian((current) => (current?.id === g.id ? null : g))}
+                              type="button"
+                            >
+                              {selectedGuardian?.id === g.id ? 'Selected ✓' : 'Select'}
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+                  {selectedGuardian ? (
+                    <p className="info-banner">Guardian linked: {selectedGuardian.firstName} {selectedGuardian.lastName}</p>
+                  ) : (
+                    <p className="warn-hint">No guardian selected — required for patients under 18.</p>
+                  )}
+                </div>
+              ) : null}
+              <button className="primary-button" disabled={isCreatingPatient || !canCreatePatient} title={!canCreatePatient ? 'Select a guardian before saving a minor patient' : undefined} type="submit">
                 {isCreatingPatient ? 'Creating patient...' : 'Create patient'}
               </button>
             </form>
@@ -376,6 +460,12 @@ function SecretarySchedulingPanel({ session }) {
                 </div>
                 <div className="data-meta">
                   <span>{formatPatientProfileSummary(patient)}</span>
+                  {(getAge(patient.dateOfBirth) ?? 99) < 18 ? (
+                    <small className="minor-indicator">
+                      {'Minor'}
+                      {!patient.guardianId ? ' · No guardian linked' : ''}
+                    </small>
+                  ) : null}
                   <small>No-show count: {patient.noShowCount}</small>
                 </div>
                 <div className="row-actions">
