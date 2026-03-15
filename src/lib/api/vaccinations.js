@@ -20,3 +20,11 @@ export async function fetchPatientAllergens(token, patientId) {
     headers: authorizedHeaders(token),
   });
 }
+
+export async function administerVaccination(token, payload) {
+  return request('/Vaccinations/records/administer', {
+    method: 'POST',
+    headers: authorizedHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}

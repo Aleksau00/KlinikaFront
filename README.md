@@ -49,3 +49,8 @@ If you use a direct API URL instead of `/api`, the backend must allow that front
 - Session persistence is implemented in local storage.
 - Role-specific protected landing screens are implemented for testing.
 - Self-service sign-up is not implemented because the current backend does not expose a public register endpoint.
+
+## Deferred / out-of-scope for this phase
+
+- Admin master-data CRUD screens for vaccination and allergen catalogs are intentionally deferred.
+- Existing role flows (admin staff/clinics, secretary desk modules, doctor slots/appointments) are treated as release scope for this phase.

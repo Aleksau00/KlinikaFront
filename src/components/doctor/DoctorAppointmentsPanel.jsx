@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  administerVaccination,
   addPatientAllergen,
   checkInAppointment,
   completeTreatmentAppointment,
@@ -52,6 +53,7 @@ function DoctorAppointmentsPanel({ session }) {
   const [treatmentForm, setTreatmentForm] = useState(INITIAL_TREATMENT_FORM);
   const [preventiveForm, setPreventiveForm] = useState(INITIAL_PREVENTIVE_FORM);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isAdministeringVaccination, setIsAdministeringVaccination] = useState(false);
 
   const [vaccinations, setVaccinations] = useState([]);
   const [allAllergens, setAllAllergens] = useState([]);
@@ -375,6 +377,59 @@ function DoctorAppointmentsPanel({ session }) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to complete appointment.');
     } finally {
       setIsCompleting(false);
+    }
+  }
+
+  async function handleAdministerVaccination() {
+    if (!completeMode || completeMode.type !== 'preventive') {
+      return;
+    }
+
+    if (!preventiveForm.vaccinationId) {
+      setErrorMessage('Select a vaccination first.');
+      return;
+    }
+
+    setIsAdministeringVaccination(true);
+    setErrorMessage('');
+    setStatusMessage('');
+
+    const payload = {
+      preventiveAppointmentId: completeMode.id,
+      vaccinationId: Number(preventiveForm.vaccinationId),
+      notes: preventiveForm.vaccinationNotes?.trim() || null,
+    };
+
+    try {
+      try {
+        await administerVaccination(session.token, payload);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (!message.toLowerCase().includes('in progress or completed')) {
+          throw error;
+        }
+
+        await checkInAppointment(session.token, completeMode.id);
+        await administerVaccination(session.token, payload);
+      }
+
+      setPreventiveForm((current) => ({
+        ...current,
+        isVaccination: true,
+      }));
+
+      if (selectedContextPatientId) {
+        const updatedHistory = await fetchPatientVaccinationRecords(session.token, selectedContextPatientId);
+        setPatientVaccinationHistory(updatedHistory);
+      }
+
+      setStatusMessage('Vaccination administration recorded.');
+      playUiFeedbackSound('created');
+      refresh();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to record vaccination administration.');
+    } finally {
+      setIsAdministeringVaccination(false);
     }
   }
 
@@ -976,6 +1031,16 @@ function DoctorAppointmentsPanel({ session }) {
                       value={preventiveForm.vaccinationNotes}
                     />
                   </label>
+                  <div className="row-actions" style={{ alignItems: 'flex-end' }}>
+                    <button
+                      className="ghost-button"
+                      disabled={isAdministeringVaccination || !preventiveForm.vaccinationId}
+                      onClick={handleAdministerVaccination}
+                      type="button"
+                    >
+                      {isAdministeringVaccination ? 'Recording vaccination…' : 'Record vaccination now'}
+                    </button>
+                  </div>
                 </div>
               ) : null}
 

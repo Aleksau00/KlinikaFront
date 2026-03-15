@@ -12,7 +12,7 @@ export {
   markAppointmentNoShow,
   fetchDoctorAvailableSlots,
 } from './api/appointments';
-export { fetchVaccinations, fetchPatientVaccinationRecords, fetchPatientAllergens } from './api/vaccinations';
+export { fetchVaccinations, fetchPatientVaccinationRecords, fetchPatientAllergens, administerVaccination } from './api/vaccinations';
 export { fetchMySlots, createSlot, createWeeklySlots, createCustomSlots, markSlotUnavailable, deleteSlot } from './api/slots';
 export { fetchDoctorScheduleForDate, completeTreatmentAppointment, completePreventiveAppointment } from './api/appointments';
 export { searchGuardians, createGuardian, fetchGuardianById, updateGuardian } from './api/guardians';
