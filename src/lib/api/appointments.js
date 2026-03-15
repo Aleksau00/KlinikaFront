@@ -51,6 +51,31 @@ export async function markAppointmentNoShow(token, appointmentId) {
   });
 }
 
+export async function fetchDoctorScheduleForDate(token, doctorId, date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+
+  return request(`/Appointments/doctor/${doctorId}${query}`, {
+    method: 'GET',
+    headers: authorizedHeaders(token),
+  });
+}
+
+export async function completeTreatmentAppointment(token, appointmentId, payload) {
+  return request(`/Appointments/${appointmentId}/complete-treatment`, {
+    method: 'PUT',
+    headers: authorizedHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function completePreventiveAppointment(token, appointmentId, payload) {
+  return request(`/Appointments/${appointmentId}/complete-preventive`, {
+    method: 'PUT',
+    headers: authorizedHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function fetchDoctorAvailableSlots(token, doctorId, fromDate, toDate) {
   const params = new URLSearchParams();
 

@@ -25,7 +25,7 @@ export const roleConfig = {
     sampleEmail: 'dr.nikolic@klinika.rs',
     samplePassword: 'Admin123!',
     tasks: ['View assigned appointments', 'Open doctor-only clinical workflows', 'Access protected medical endpoints'],
-    sections: ['overview', 'account'],
+    sections: ['overview', 'account', 'my-slots', 'my-appointments'],
   },
   secretary: {
     label: 'Secretary',
