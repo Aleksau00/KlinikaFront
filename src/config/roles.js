@@ -39,7 +39,7 @@ export const roleConfig = {
     sampleEmail: 'jovana.simic@klinika.rs',
     samplePassword: 'Admin123!',
     tasks: ['Register pediatric patients and link guardians for minors', 'Handle booking and check-in flows', 'Manage front-office appointment and scheduling workflows'],
-    sections: ['overview', 'account', 'desk-scheduling', 'desk-appointments'],
+    sections: ['overview', 'account', 'desk-scheduling', 'desk-patients', 'desk-appointments'],
   },
 };
 
