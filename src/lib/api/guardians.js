@@ -24,7 +24,7 @@ export async function fetchGuardianById(token, guardianId) {
   });
 }
 
-export async function updateGuardianContact(token, guardianId, payload) {
+export async function updateGuardian(token, guardianId, payload) {
   return request(`/Guardians/${guardianId}`, {
     method: 'PUT',
     headers: authorizedHeaders(token),
