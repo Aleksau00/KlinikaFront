@@ -733,9 +733,9 @@ input {
   grid-column: 1 / -1;
   border-top: 1px solid var(--line);
   margin-top: 10px;
-  padding-top: 10px;
+  padding-top: 14px;
   display: grid;
-  gap: 6px;
+  gap: 12px;
 }
 
 .appointment-insight p {
@@ -745,9 +745,13 @@ input {
 
 .clinical-context-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
   align-items: stretch;
+}
+
+.clinical-context-grid-compact {
+  margin-bottom: 1rem;
 }
 
 .clinical-card {
@@ -772,7 +776,27 @@ input {
   padding-left: 1rem;
 }
 
+.clinical-card li {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.clinical-inline-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .clinical-form-card label {
+  display: grid;
+  gap: 8px;
+}
+
+.appointment-insight-grid {
+  width: 100%;
+}
+
+.clinical-note-list {
   display: grid;
   gap: 8px;
 }

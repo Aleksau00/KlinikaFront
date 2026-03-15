@@ -5,6 +5,7 @@ import {
   completePreventiveAppointment,
   fetchDoctorAppointments,
   fetchPatientAllergens,
+  fetchPatientAppointments,
   fetchPatientVaccinationRecords,
   fetchVaccinations,
   markAppointmentNoShow,
@@ -52,6 +53,7 @@ function DoctorAppointmentsPanel({ session }) {
   const [vaccinations, setVaccinations] = useState([]);
   const [patientAllergens, setPatientAllergens] = useState([]);
   const [patientVaccinationHistory, setPatientVaccinationHistory] = useState([]);
+  const [patientAppointmentHistory, setPatientAppointmentHistory] = useState([]);
   const [isLoadingPatientContext, setIsLoadingPatientContext] = useState(false);
 
   const [statusMessage, setStatusMessage] = useState('');
@@ -164,34 +166,44 @@ function DoctorAppointmentsPanel({ session }) {
     setVersion((v) => v + 1);
   }
 
+  const selectedContextAppointment = completeMode
+    ? appointments.find((appointment) => appointment.id === completeMode.id) || completeMode
+    : appointments.find((appointment) => appointment.id === expandedAppointmentId) || null;
+
+  const selectedContextPatientId = completeMode?.patientId || selectedContextAppointment?.patientId || null;
+
   useEffect(() => {
     let ignore = false;
 
     async function loadPatientContext() {
-      const patientId = completeMode?.patientId;
+      const patientId = selectedContextPatientId;
 
       if (!patientId) {
         setPatientAllergens([]);
         setPatientVaccinationHistory([]);
+        setPatientAppointmentHistory([]);
         return;
       }
 
       setIsLoadingPatientContext(true);
 
       try {
-        const [allergens, vaccinationsHistory] = await Promise.all([
+        const [allergens, vaccinationsHistory, appointmentHistory] = await Promise.all([
           fetchPatientAllergens(session.token, patientId),
           fetchPatientVaccinationRecords(session.token, patientId),
+          fetchPatientAppointments(session.token, patientId),
         ]);
 
         if (!ignore) {
           setPatientAllergens(allergens);
           setPatientVaccinationHistory(vaccinationsHistory);
+          setPatientAppointmentHistory(appointmentHistory);
         }
       } catch {
         if (!ignore) {
           setPatientAllergens([]);
           setPatientVaccinationHistory([]);
+          setPatientAppointmentHistory([]);
         }
       } finally {
         if (!ignore) {
@@ -205,7 +217,7 @@ function DoctorAppointmentsPanel({ session }) {
     return () => {
       ignore = true;
     };
-  }, [completeMode?.patientId, session.token]);
+  }, [selectedContextPatientId, session.token]);
 
   function isTreatmentAppointmentType(value) {
     return value === 1 || value === '1' || value === 'Treatment';
@@ -401,7 +413,143 @@ function DoctorAppointmentsPanel({ session }) {
   }
 
   function toggleExpanded(appointmentId) {
+    setCompleteMode(null);
     setExpandedAppointmentId((current) => (current === appointmentId ? null : appointmentId));
+  }
+
+  function getAppointmentSortValue(appointment) {
+    const candidates = [
+      appointment.completedAt,
+      appointment.cancelledAt,
+      appointment.checkedInAt,
+      appointment.scheduledDate && appointment.scheduledStartTime
+        ? `${appointment.scheduledDate}T${String(appointment.scheduledStartTime).slice(0, 8)}`
+        : null,
+    ].filter(Boolean);
+
+    if (candidates.length === 0) {
+      return 0;
+    }
+
+    const parsed = new Date(candidates[0]);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+  }
+
+  function getRelatedAppointments(currentAppointmentId) {
+    return [...patientAppointmentHistory]
+      .filter((appointment) => appointment.id !== currentAppointmentId)
+      .sort((left, right) => getAppointmentSortValue(right) - getAppointmentSortValue(left))
+      .slice(0, 5);
+  }
+
+  function renderPatientContextCards(currentAppointmentId) {
+    const recentAppointments = getRelatedAppointments(currentAppointmentId);
+
+    return (
+      <>
+        <section className="clinical-card">
+          <p className="eyebrow">Patient safety</p>
+          <h3>Known allergens</h3>
+          {isLoadingPatientContext ? <p>Loading allergens...</p> : null}
+          {!isLoadingPatientContext && patientAllergens.length === 0 ? <p className="muted-hint">No known allergens.</p> : null}
+          {!isLoadingPatientContext && patientAllergens.length > 0 ? (
+            <ul>
+              {patientAllergens.map((item) => (
+                <li key={`${item.patientId}-${item.allergenId}`}>
+                  <strong>{item.allergenName}</strong>{item.notes ? ` - ${item.notes}` : ''}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+
+        <section className="clinical-card">
+          <p className="eyebrow">Immunization context</p>
+          <h3>Vaccination history</h3>
+          {isLoadingPatientContext ? <p>Loading records...</p> : null}
+          {!isLoadingPatientContext && patientVaccinationHistory.length === 0 ? <p className="muted-hint">No vaccination records found.</p> : null}
+          {!isLoadingPatientContext && patientVaccinationHistory.length > 0 ? (
+            <ul>
+              {patientVaccinationHistory.slice(0, 6).map((item) => (
+                <li key={item.id}>
+                  <strong>{item.vaccinationName}</strong> ({formatDateLabel(item.administeredDate)})
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+
+        <section className="clinical-card">
+          <p className="eyebrow">Visit history</p>
+          <h3>Recent appointments</h3>
+          {isLoadingPatientContext ? <p>Loading prior visits...</p> : null}
+          {!isLoadingPatientContext && recentAppointments.length === 0 ? <p className="muted-hint">No earlier appointments found.</p> : null}
+          {!isLoadingPatientContext && recentAppointments.length > 0 ? (
+            <ul>
+              {recentAppointments.map((item) => (
+                <li key={item.id}>
+                  <strong>{formatAppointmentType(item.appointmentType)}</strong>
+                  {' '}
+                  <span>{item.scheduledDate} at {String(item.scheduledStartTime || '').slice(0, 5)}</span>
+                  <small className="clinical-inline-meta">{formatAppointmentStatus(item.status)}</small>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      </>
+    );
+  }
+
+  function renderClinicalSummaryCard(appt) {
+    return isTreatmentAppointmentType(appt.appointmentType) ? (
+      <section className="clinical-card">
+        <p className="eyebrow">Treatment record</p>
+        <h3>Clinical notes</h3>
+        <div className="clinical-note-list">
+          <p><strong>Anamnesis:</strong> {appt.anamnesis || 'Unavailable'}</p>
+          <p><strong>Status observation:</strong> {appt.statusObservation || 'Unavailable'}</p>
+          <p><strong>Therapy:</strong> {appt.therapy || 'Unavailable'}</p>
+          <p><strong>Diagnosed condition:</strong> {appt.diagnosedCondition || 'Unavailable'}</p>
+        </div>
+      </section>
+    ) : (
+      <section className="clinical-card">
+        <p className="eyebrow">Preventive record</p>
+        <h3>Clinical notes</h3>
+        <div className="clinical-note-list">
+          <p><strong>Preventive notes:</strong> {appt.preventiveNotes || 'Unavailable'}</p>
+          <p><strong>Growth/development:</strong> {appt.childDevelopmentNotes || 'Unavailable'}</p>
+          <p><strong>Vaccination:</strong> {appt.isVaccination ? 'Yes' : 'No'}</p>
+          {appt.isVaccination ? <p><strong>Vaccine:</strong> {appt.vaccinationName || 'Unavailable'}</p> : null}
+          {appt.vaccinationNotes ? <p><strong>Vaccination notes:</strong> {appt.vaccinationNotes}</p> : null}
+        </div>
+      </section>
+    );
+  }
+
+  function renderAppointmentInsight(appt) {
+    return (
+      <div className="appointment-insight">
+        <div className="clinical-context-grid appointment-insight-grid">
+          <section className="clinical-card">
+            <p className="eyebrow">Visit summary</p>
+            <h3>{formatAppointmentReference(appt)}</h3>
+            <div className="clinical-note-list">
+              <p><strong>Status:</strong> {formatAppointmentStatus(appt.status)}</p>
+              <p><strong>Clinic:</strong> {appt.clinicName || 'Unavailable'}</p>
+              <p><strong>Checked in:</strong> {formatDateTime(appt.checkedInAt)}</p>
+              <p><strong>Completed:</strong> {formatDateTime(appt.completedAt)}</p>
+              <p><strong>Cancelled:</strong> {formatDateTime(appt.cancelledAt)}</p>
+              {appt.cancellationReason ? <p><strong>Cancellation reason:</strong> {appt.cancellationReason}</p> : null}
+            </div>
+          </section>
+
+          {renderClinicalSummaryCard(appt)}
+          {renderPatientContextCards(appt.id)}
+        </div>
+      </div>
+    );
   }
 
   function getRangeLabel() {
@@ -562,6 +710,10 @@ function DoctorAppointmentsPanel({ session }) {
           <h2>{completeMode.type === 'treatment' ? 'Treatment notes' : 'Preventive notes'}</h2>
           <p className="muted-hint">{completeMode.patientName ? `Patient: ${completeMode.patientName}` : 'Patient unavailable'}</p>
 
+          <div className="clinical-context-grid clinical-context-grid-compact">
+            {renderPatientContextCards(completeMode.id)}
+          </div>
+
           {completeMode.type === 'treatment' ? (
             <form className="admin-form" onSubmit={handleCompleteTreatment}>
               <div className="form-grid">
@@ -613,7 +765,7 @@ function DoctorAppointmentsPanel({ session }) {
             </form>
           ) : (
             <form className="admin-form" onSubmit={handleCompletePreventive}>
-              <div className="clinical-context-grid">
+              <div className="clinical-context-grid clinical-context-grid-compact">
                 <section className="clinical-card clinical-form-card">
                   <p className="eyebrow">Preventive notes</p>
                   <label>
@@ -645,37 +797,7 @@ function DoctorAppointmentsPanel({ session }) {
                   </label>
                 </section>
 
-                <section className="clinical-card">
-                  <p className="eyebrow">Patient safety</p>
-                  <h3>Known allergens</h3>
-                  {isLoadingPatientContext ? <p>Loading allergens...</p> : null}
-                  {!isLoadingPatientContext && patientAllergens.length === 0 ? <p className="muted-hint">No known allergens.</p> : null}
-                  {!isLoadingPatientContext && patientAllergens.length > 0 ? (
-                    <ul>
-                      {patientAllergens.map((item) => (
-                        <li key={`${item.patientId}-${item.allergenId}`}>
-                          <strong>{item.allergenName}</strong>{item.notes ? ` - ${item.notes}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </section>
-
-                <section className="clinical-card">
-                  <p className="eyebrow">Immunization context</p>
-                  <h3>Vaccination history</h3>
-                  {isLoadingPatientContext ? <p>Loading records...</p> : null}
-                  {!isLoadingPatientContext && patientVaccinationHistory.length === 0 ? <p className="muted-hint">No vaccination records found.</p> : null}
-                  {!isLoadingPatientContext && patientVaccinationHistory.length > 0 ? (
-                    <ul>
-                      {patientVaccinationHistory.slice(0, 6).map((item) => (
-                        <li key={item.id}>
-                          <strong>{item.vaccinationName}</strong> ({formatDateLabel(item.administeredDate)})
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </section>
+                {renderPatientContextCards(completeMode.id)}
               </div>
 
               {preventiveForm.isVaccination ? (
@@ -756,6 +878,13 @@ function DoctorAppointmentsPanel({ session }) {
                     </button>
                   ) : null}
                   <button
+                    className="ghost-button"
+                    onClick={() => toggleExpanded(appt.id)}
+                    type="button"
+                  >
+                    {expandedAppointmentId === appt.id ? 'Hide context' : 'View context'}
+                  </button>
+                  <button
                     className="danger-button-outline"
                     disabled={actionId === appt.id}
                     onClick={() => handleNoShow(appt.id)}
@@ -764,6 +893,8 @@ function DoctorAppointmentsPanel({ session }) {
                     No-show
                   </button>
                 </div>
+
+                {expandedAppointmentId === appt.id ? renderAppointmentInsight(appt) : null}
               </article>
             ))}
           </div>
@@ -798,28 +929,7 @@ function DoctorAppointmentsPanel({ session }) {
                 </div>
 
                 {expandedAppointmentId === appt.id ? (
-                  <div className="appointment-insight">
-                    <p><strong>Checked in:</strong> {formatDateTime(appt.checkedInAt)}</p>
-                    <p><strong>Completed:</strong> {formatDateTime(appt.completedAt)}</p>
-                    <p><strong>Cancelled:</strong> {formatDateTime(appt.cancelledAt)}</p>
-
-                    {isTreatmentAppointmentType(appt.appointmentType) ? (
-                      <>
-                        <p><strong>Anamnesis:</strong> {appt.anamnesis || 'Unavailable'}</p>
-                        <p><strong>Status observation:</strong> {appt.statusObservation || 'Unavailable'}</p>
-                        <p><strong>Therapy:</strong> {appt.therapy || 'Unavailable'}</p>
-                        <p><strong>Diagnosed condition:</strong> {appt.diagnosedCondition || 'Unavailable'}</p>
-                      </>
-                    ) : (
-                      <>
-                        <p><strong>Preventive notes:</strong> {appt.preventiveNotes || 'Unavailable'}</p>
-                        <p><strong>Growth/development:</strong> {appt.childDevelopmentNotes || 'Unavailable'}</p>
-                        <p><strong>Vaccination:</strong> {appt.isVaccination ? 'Yes' : 'No'}</p>
-                        {appt.isVaccination ? <p><strong>Vaccine:</strong> {appt.vaccinationName || 'Unavailable'}</p> : null}
-                        {appt.vaccinationNotes ? <p><strong>Vaccination notes:</strong> {appt.vaccinationNotes}</p> : null}
-                      </>
-                    )}
-                  </div>
+                  renderAppointmentInsight(appt)
                 ) : null}
               </article>
             ))}
