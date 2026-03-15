@@ -10,6 +10,51 @@ export function formatGenderLabel(value) {
   return value || 'Unavailable';
 }
 
+export function formatDateLabel(value) {
+  if (!value) {
+    return 'Unavailable';
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Unavailable';
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+  }).format(parsed);
+}
+
+export function formatAppointmentType(value) {
+  const labelMap = {
+    0: 'Preventive',
+    1: 'Treatment',
+    Preventive: 'Preventive',
+    Treatment: 'Treatment',
+  };
+
+  return labelMap[value] || String(value || 'Unknown');
+}
+
+export function formatPatientProfileSummary(patient) {
+  if (!patient) {
+    return 'Profile details unavailable';
+  }
+
+  const parts = [];
+
+  if (patient.gender) {
+    parts.push(formatGenderLabel(patient.gender));
+  }
+
+  if (patient.dateOfBirth) {
+    parts.push(`Born ${formatDateLabel(patient.dateOfBirth)}`);
+  }
+
+  return parts.join(' · ') || 'Profile details unavailable';
+}
+
 export function formatAppointmentReference(appointment) {
   if (!appointment) {
     return 'Appointment';

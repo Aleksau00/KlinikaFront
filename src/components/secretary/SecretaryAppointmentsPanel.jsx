@@ -9,7 +9,7 @@ import {
   searchPatients,
 } from '../../lib/api';
 import { formatDateForInput } from '../../lib/appointments';
-import { formatAppointmentReference } from '../../lib/display';
+import { formatAppointmentReference, formatPatientProfileSummary } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 import AppointmentLifecycleList from '../appointments/AppointmentLifecycleList';
 import CancelAppointmentDialog from '../appointments/CancelAppointmentDialog';
@@ -284,7 +284,7 @@ function SecretaryAppointmentsPanel({ session }) {
               <span>Search term</span>
               <input
                 onChange={(event) => setPatientSearchTerm(event.target.value)}
-                placeholder="Name, email, phone, or JMBG"
+                placeholder="Name, email, phone, or patient record"
                 type="text"
                 value={patientSearchTerm}
               />
@@ -299,10 +299,10 @@ function SecretaryAppointmentsPanel({ session }) {
               <article className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`} key={patient.id}>
                 <div>
                   <strong>{patient.firstName} {patient.lastName}</strong>
-                  <p>{patient.email || patient.phoneNumber}</p>
+                  <p>{patient.email || patient.phoneNumber || 'No contact details'}</p>
                 </div>
                 <div className="data-meta">
-                  <span>JMBG {patient.jmbg}</span>
+                  <span>{formatPatientProfileSummary(patient)}</span>
                   <small>No-show count: {patient.noShowCount}</small>
                 </div>
                 <div className="row-actions">

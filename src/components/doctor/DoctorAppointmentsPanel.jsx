@@ -15,7 +15,7 @@ import {
   isInProgressStatus,
   isScheduledStatus,
 } from '../../lib/appointments';
-import { formatAppointmentReference } from '../../lib/display';
+import { formatAppointmentReference, formatAppointmentType, formatDateLabel } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 
 const INITIAL_TREATMENT_FORM = {
@@ -351,10 +351,6 @@ function DoctorAppointmentsPanel({ session }) {
     playUiFeedbackSound('select');
   }
 
-  function getAppointmentType(appt) {
-    return isTreatmentAppointmentType(appt.appointmentType) ? 'Treatment' : 'Preventive';
-  }
-
   function isPastScheduledAppointment(appt) {
     if (!isScheduledStatus(appt.status)) {
       return false;
@@ -566,40 +562,6 @@ function DoctorAppointmentsPanel({ session }) {
           <h2>{completeMode.type === 'treatment' ? 'Treatment notes' : 'Preventive notes'}</h2>
           <p className="muted-hint">{completeMode.patientName ? `Patient: ${completeMode.patientName}` : 'Patient unavailable'}</p>
 
-          <div className="secretary-grid compact-grid" style={{ marginBottom: '1rem' }}>
-            <article className="workspace-panel" style={{ margin: 0 }}>
-              <p className="eyebrow">Patient safety</p>
-              <h3 style={{ margin: '0 0 0.5rem 0' }}>Known allergens</h3>
-              {isLoadingPatientContext ? <p>Loading allergens...</p> : null}
-              {!isLoadingPatientContext && patientAllergens.length === 0 ? <p className="muted-hint">No known allergens.</p> : null}
-              {!isLoadingPatientContext && patientAllergens.length > 0 ? (
-                <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-                  {patientAllergens.map((item) => (
-                    <li key={`${item.patientId}-${item.allergenId}`}>
-                      <strong>{item.allergenName}</strong>{item.notes ? ` - ${item.notes}` : ''}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-
-            <article className="workspace-panel" style={{ margin: 0 }}>
-              <p className="eyebrow">Immunization context</p>
-              <h3 style={{ margin: '0 0 0.5rem 0' }}>Vaccination history</h3>
-              {isLoadingPatientContext ? <p>Loading records...</p> : null}
-              {!isLoadingPatientContext && patientVaccinationHistory.length === 0 ? <p className="muted-hint">No vaccination records found.</p> : null}
-              {!isLoadingPatientContext && patientVaccinationHistory.length > 0 ? (
-                <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-                  {patientVaccinationHistory.slice(0, 6).map((item) => (
-                    <li key={item.id}>
-                      <strong>{item.vaccinationName}</strong> ({new Date(item.administeredDate).toLocaleDateString('en-GB')})
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-          </div>
-
           {completeMode.type === 'treatment' ? (
             <form className="admin-form" onSubmit={handleCompleteTreatment}>
               <div className="form-grid">
@@ -651,38 +613,73 @@ function DoctorAppointmentsPanel({ session }) {
             </form>
           ) : (
             <form className="admin-form" onSubmit={handleCompletePreventive}>
-              <div className="form-grid">
-                <label>
-                  <span>Preventive notes</span>
-                  <textarea
-                    onChange={(e) => setPreventiveForm((f) => ({ ...f, preventiveNotes: e.target.value }))}
-                    rows={3}
-                    value={preventiveForm.preventiveNotes}
-                  />
-                </label>
-                <label>
-                  <span>Growth / development notes</span>
-                  <textarea
-                    onChange={(e) => setPreventiveForm((f) => ({ ...f, childDevelopmentNotes: e.target.value }))}
-                    rows={3}
-                    value={preventiveForm.childDevelopmentNotes}
-                  />
-                </label>
-                <label className="checkbox-card-field">
-                  <span className="checkbox-card-control">
+              <div className="clinical-context-grid">
+                <section className="clinical-card clinical-form-card">
+                  <p className="eyebrow">Preventive notes</p>
+                  <label>
+                    <span>Preventive notes</span>
+                    <textarea
+                      onChange={(e) => setPreventiveForm((f) => ({ ...f, preventiveNotes: e.target.value }))}
+                      rows={4}
+                      value={preventiveForm.preventiveNotes}
+                    />
+                  </label>
+                  <label>
+                    <span>Growth / development notes</span>
+                    <textarea
+                      onChange={(e) => setPreventiveForm((f) => ({ ...f, childDevelopmentNotes: e.target.value }))}
+                      rows={4}
+                      value={preventiveForm.childDevelopmentNotes}
+                    />
+                  </label>
+                  <label className="checkbox-inline-toggle">
                     <input
                       checked={preventiveForm.isVaccination}
                       onChange={(e) => setPreventiveForm((f) => ({ ...f, isVaccination: e.target.checked, vaccinationId: '' }))}
                       type="checkbox"
                     />
-                    <strong>Includes vaccination</strong>
-                  </span>
-                  <small>Enable this when the preventive visit also includes administering a vaccine.</small>
-                </label>
+                    <span>
+                      <strong>This preventive visit includes vaccination</strong>
+                      <small>Enable this when the visit includes administering a vaccine during the same encounter.</small>
+                    </span>
+                  </label>
+                </section>
+
+                <section className="clinical-card">
+                  <p className="eyebrow">Patient safety</p>
+                  <h3>Known allergens</h3>
+                  {isLoadingPatientContext ? <p>Loading allergens...</p> : null}
+                  {!isLoadingPatientContext && patientAllergens.length === 0 ? <p className="muted-hint">No known allergens.</p> : null}
+                  {!isLoadingPatientContext && patientAllergens.length > 0 ? (
+                    <ul>
+                      {patientAllergens.map((item) => (
+                        <li key={`${item.patientId}-${item.allergenId}`}>
+                          <strong>{item.allergenName}</strong>{item.notes ? ` - ${item.notes}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </section>
+
+                <section className="clinical-card">
+                  <p className="eyebrow">Immunization context</p>
+                  <h3>Vaccination history</h3>
+                  {isLoadingPatientContext ? <p>Loading records...</p> : null}
+                  {!isLoadingPatientContext && patientVaccinationHistory.length === 0 ? <p className="muted-hint">No vaccination records found.</p> : null}
+                  {!isLoadingPatientContext && patientVaccinationHistory.length > 0 ? (
+                    <ul>
+                      {patientVaccinationHistory.slice(0, 6).map((item) => (
+                        <li key={item.id}>
+                          <strong>{item.vaccinationName}</strong> ({formatDateLabel(item.administeredDate)})
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </section>
               </div>
 
               {preventiveForm.isVaccination ? (
-                <div className="form-grid" style={{ marginTop: '0.5rem' }}>
+                <div className="form-grid clinical-followup-grid">
                   <label>
                     <span>Vaccination</span>
                     <select
@@ -730,7 +727,7 @@ function DoctorAppointmentsPanel({ session }) {
                 <div>
                   <strong>{String(appt.scheduledStartTime).slice(0, 5)} – {String(appt.scheduledEndTime).slice(0, 5)}</strong>
                   <p>Patient: {appt.patientName}</p>
-                  <p>Type: {getAppointmentType(appt)}</p>
+                  <p>Type: {formatAppointmentType(appt.appointmentType)}</p>
                 </div>
                 <div className="data-meta">
                   <span>{formatAppointmentReference(appt)}</span>
@@ -783,7 +780,7 @@ function DoctorAppointmentsPanel({ session }) {
                 <div>
                   <strong>{String(appt.scheduledStartTime).slice(0, 5)} – {String(appt.scheduledEndTime).slice(0, 5)}</strong>
                   <p>Patient: {appt.patientName}</p>
-                  <p>Type: {getAppointmentType(appt)}</p>
+                  <p>Type: {formatAppointmentType(appt.appointmentType)}</p>
                 </div>
                 <div className="data-meta">
                   <span>{formatAppointmentReference(appt)}</span>
@@ -818,6 +815,7 @@ function DoctorAppointmentsPanel({ session }) {
                         <p><strong>Preventive notes:</strong> {appt.preventiveNotes || 'Unavailable'}</p>
                         <p><strong>Growth/development:</strong> {appt.childDevelopmentNotes || 'Unavailable'}</p>
                         <p><strong>Vaccination:</strong> {appt.isVaccination ? 'Yes' : 'No'}</p>
+                        {appt.isVaccination ? <p><strong>Vaccine:</strong> {appt.vaccinationName || 'Unavailable'}</p> : null}
                         {appt.vaccinationNotes ? <p><strong>Vaccination notes:</strong> {appt.vaccinationNotes}</p> : null}
                       </>
                     )}

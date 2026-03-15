@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { bookAppointment, createPatient, fetchDoctorAvailableSlots, fetchDoctors, searchPatients } from '../../lib/api';
 import { initialPatientForm } from '../../config/roles';
 import { formatDateForInput } from '../../lib/appointments';
-import { formatSlotReference } from '../../lib/display';
+import { formatPatientProfileSummary, formatSlotReference } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 
 function SecretarySchedulingPanel({ session }) {
@@ -312,7 +312,7 @@ function SecretarySchedulingPanel({ session }) {
               <span>Search term</span>
               <input
                 onChange={(event) => setPatientSearchTerm(event.target.value)}
-                placeholder="Name, email, phone, or JMBG"
+                placeholder="Name, email, phone, or patient record"
                 type="text"
                 value={patientSearchTerm}
               />
@@ -372,10 +372,10 @@ function SecretarySchedulingPanel({ session }) {
               <article className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`} key={patient.id}>
                 <div>
                   <strong>{patient.firstName} {patient.lastName}</strong>
-                  <p>{patient.email || patient.phoneNumber}</p>
+                  <p>{patient.email || patient.phoneNumber || 'No contact details'}</p>
                 </div>
                 <div className="data-meta">
-                  <span>JMBG {patient.jmbg}</span>
+                  <span>{formatPatientProfileSummary(patient)}</span>
                   <small>No-show count: {patient.noShowCount}</small>
                 </div>
                 <div className="row-actions">

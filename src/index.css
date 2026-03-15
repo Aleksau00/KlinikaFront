@@ -214,6 +214,15 @@ input {
   gap: 14px;
 }
 
+.portal-grid > .portal-card {
+  align-self: stretch;
+}
+
+.portal-card .primary-link {
+  margin-top: auto;
+  align-self: start;
+}
+
 .portal-card-large {
   padding: 32px;
 }
@@ -734,6 +743,78 @@ input {
   color: var(--muted);
 }
 
+.clinical-context-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.clinical-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+  min-height: 100%;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.clinical-card h3,
+.clinical-card p,
+.clinical-card ul {
+  margin: 0;
+}
+
+.clinical-card ul {
+  padding-left: 1rem;
+}
+
+.clinical-form-card label {
+  display: grid;
+  gap: 8px;
+}
+
+.checkbox-inline-toggle {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(29, 36, 51, 0.12);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.checkbox-inline-toggle input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+  accent-color: #0f5a66;
+}
+
+.checkbox-inline-toggle span {
+  display: grid;
+  gap: 4px;
+  color: var(--ink);
+}
+
+.checkbox-inline-toggle strong {
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.checkbox-inline-toggle small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.clinical-followup-grid {
+  margin-top: 0.5rem;
+}
+
 .row-actions button {
   min-height: 36px;
   padding: 0 12px;
@@ -866,6 +947,7 @@ input {
   .portal-grid,
   .workspace-grid,
   .portal-shell,
+  .clinical-context-grid,
   .split-grid,
   .form-grid,
   .data-row {
