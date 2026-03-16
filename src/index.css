@@ -436,6 +436,7 @@ input {
 
 .compact-grid > .workspace-panel {
   height: 100%;
+  align-content: start;
 }
 
 .doctor-actions-grid {
@@ -447,6 +448,7 @@ input {
 
 .doctor-actions-grid > .workspace-panel {
   height: 100%;
+  align-content: start;
 }
 
 .portal-shell {

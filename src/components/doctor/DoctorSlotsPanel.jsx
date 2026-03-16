@@ -350,10 +350,10 @@ function DoctorSlotsPanel({ session }) {
 
       {/* Single slot + Custom range — side by side */}
       <div className="doctor-actions-grid compact-grid">
-        <article className="workspace-panel">
+        <article className="workspace-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <p className="eyebrow">Single slot</p>
-          <h2>Create one slot</h2>
-          <form className="admin-form" onSubmit={handleCreateSingle}>
+          <h2>Create slot</h2>
+          <form className="admin-form" onSubmit={handleCreateSingle} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div className="form-grid">
               <label>
                 <span>Date</span>
@@ -376,7 +376,7 @@ function DoctorSlotsPanel({ session }) {
                 />
               </label>
             </div>
-            <button className="primary-button" disabled={isCreatingSingle} type="submit">
+            <button className="primary-button" disabled={isCreatingSingle} style={{ marginTop: 'auto' }} type="submit">
               {isCreatingSingle ? 'Creating…' : 'Create slot'}
             </button>
           </form>
