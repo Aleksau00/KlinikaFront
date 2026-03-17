@@ -22,6 +22,10 @@ function getAge(dateOfBirth) {
   return age;
 }
 
+function normalizeJmbgValue(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 13);
+}
+
 const initialGuardianForm = {
   firstName: '',
   lastName: '',
@@ -87,7 +91,7 @@ function SecretaryPatientsPanel({ session }) {
   function updatePatientFormField(field, value) {
     setPatientFormState((current) => ({
       ...current,
-      [field]: value,
+      [field]: field === 'jmbg' ? normalizeJmbgValue(value) : value,
     }));
   }
 
@@ -98,7 +102,7 @@ function SecretaryPatientsPanel({ session }) {
   function updateEditPatientField(field, value) {
     setEditPatientState((current) => ({
       ...current,
-      [field]: value,
+      [field]: field === 'jmbg' ? normalizeJmbgValue(value) : value,
     }));
   }
 
@@ -196,6 +200,12 @@ function SecretaryPatientsPanel({ session }) {
   async function handleCreatePatient(event) {
     event.preventDefault();
 
+    const normalizedJmbg = normalizeJmbgValue(patientFormState.jmbg);
+    if (normalizedJmbg.length !== 13) {
+      setErrorMessage('JMBG must contain exactly 13 digits.');
+      return;
+    }
+
     const isMinor = (getAge(patientFormState.dateOfBirth) ?? 99) < 18;
     if (isMinor && !selectedGuardian?.id) {
       setErrorMessage('A guardian must be linked for patients under 18.');
@@ -212,7 +222,7 @@ function SecretaryPatientsPanel({ session }) {
         lastName: patientFormState.lastName,
         email: patientFormState.email.trim() || null,
         phoneNumber: patientFormState.phoneNumber.trim() || null,
-        jmbg: patientFormState.jmbg,
+        jmbg: normalizedJmbg,
         gender: patientFormState.gender,
         dateOfBirth: patientFormState.dateOfBirth,
         bloodType: patientFormState.bloodType,
@@ -267,6 +277,12 @@ function SecretaryPatientsPanel({ session }) {
       return;
     }
 
+    const normalizedJmbg = normalizeJmbgValue(editPatientState.jmbg);
+    if (normalizedJmbg.length !== 13) {
+      setErrorMessage('JMBG must contain exactly 13 digits.');
+      return;
+    }
+
     setIsUpdatingPatient(true);
     setErrorMessage('');
     setStatusMessage('');
@@ -276,7 +292,7 @@ function SecretaryPatientsPanel({ session }) {
       lastName: editPatientState.lastName,
       email: editPatientState.email || null,
       phoneNumber: editPatientState.phoneNumber,
-      jmbg: editPatientState.jmbg,
+      jmbg: normalizedJmbg,
       gender: editPatientState.gender,
       dateOfBirth: editPatientState.dateOfBirth,
       bloodType: editPatientState.bloodType,
@@ -300,7 +316,9 @@ function SecretaryPatientsPanel({ session }) {
   }
 
   const isPatientMinor = (getAge(patientFormState.dateOfBirth) ?? 99) < 18;
-  const canCreatePatient = !isPatientMinor || selectedGuardian !== null;
+  const isEditPatientMinor = (getAge(editPatientState.dateOfBirth) ?? 99) < 18;
+  const createPatientJmbgLength = normalizeJmbgValue(patientFormState.jmbg).length;
+  const canCreatePatient = (!isPatientMinor || selectedGuardian !== null) && createPatientJmbgLength === 13;
 
   return (
     <div className="portal-stack">
@@ -383,7 +401,21 @@ function SecretaryPatientsPanel({ session }) {
               </label>
               <label>
                 <span>JMBG</span>
-                <input onChange={(event) => updatePatientFormField('jmbg', event.target.value)} required type="text" value={patientFormState.jmbg} />
+                <input
+                  inputMode="numeric"
+                  maxLength={13}
+                  onChange={(event) => updatePatientFormField('jmbg', event.target.value)}
+                  pattern="[0-9]{13}"
+                  placeholder="13 digits"
+                  required
+                  type="text"
+                  value={patientFormState.jmbg}
+                />
+                <p className={createPatientJmbgLength === 13 ? 'muted-hint' : 'warn-hint'}>
+                  {createPatientJmbgLength === 13
+                    ? 'JMBG length is valid (13/13).'
+                    : `JMBG must contain exactly 13 digits (${createPatientJmbgLength}/13 entered).`}
+                </p>
               </label>
               <label>
                 <span>Gender</span>
@@ -545,7 +577,13 @@ function SecretaryPatientsPanel({ session }) {
               </label>
               <label>
                 <span>Phone number</span>
-                <input onChange={(event) => updateEditPatientField('phoneNumber', event.target.value)} required type="text" value={editPatientState.phoneNumber} />
+                <input
+                  onChange={(event) => updateEditPatientField('phoneNumber', event.target.value)}
+                  required={!isEditPatientMinor}
+                  type="text"
+                  value={editPatientState.phoneNumber}
+                />
+                {isEditPatientMinor ? <p className="muted-hint">Optional for underage patients.</p> : null}
               </label>
               <label>
                 <span>JMBG</span>
@@ -632,13 +670,13 @@ function SecretaryPatientsPanel({ session }) {
               ) : null}
             </div>
 
-            {(getAge(editPatientState.dateOfBirth) ?? 99) < 18 && !selectedEditGuardian ? (
+            {isEditPatientMinor && !selectedEditGuardian ? (
               <p className="warn-hint">Minor patients must have a linked guardian before you can save changes.</p>
             ) : null}
 
             <button
               className="primary-button"
-              disabled={isUpdatingPatient || ((getAge(editPatientState.dateOfBirth) ?? 99) < 18 && !selectedEditGuardian)}
+              disabled={isUpdatingPatient || (isEditPatientMinor && !selectedEditGuardian)}
               type="submit"
             >
               {isUpdatingPatient ? 'Saving...' : 'Save patient changes'}

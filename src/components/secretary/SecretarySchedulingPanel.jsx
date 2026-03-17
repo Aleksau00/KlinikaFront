@@ -26,6 +26,10 @@ function getAge(dateOfBirth) {
   return age;
 }
 
+function normalizeJmbgValue(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 13);
+}
+
 const initialGuardianForm = {
   firstName: '',
   lastName: '',
@@ -279,12 +283,19 @@ function SecretarySchedulingPanel({ session }) {
   function updatePatientFormField(field, value) {
     setPatientFormState((current) => ({
       ...current,
-      [field]: value,
+      [field]: field === 'jmbg' ? normalizeJmbgValue(value) : value,
     }));
   }
 
   async function handleCreatePatient(event) {
     event.preventDefault();
+
+    const normalizedJmbg = normalizeJmbgValue(patientFormState.jmbg);
+    if (normalizedJmbg.length !== 13) {
+      setErrorMessage('JMBG must contain exactly 13 digits.');
+      return;
+    }
+
     setIsCreatingPatient(true);
     setErrorMessage('');
     setStatusMessage('');
@@ -294,7 +305,7 @@ function SecretarySchedulingPanel({ session }) {
       lastName: patientFormState.lastName,
       email: patientFormState.email.trim() || null,
       phoneNumber: patientFormState.phoneNumber.trim() || null,
-      jmbg: patientFormState.jmbg,
+      jmbg: normalizedJmbg,
       gender: patientFormState.gender,
       dateOfBirth: patientFormState.dateOfBirth,
       bloodType: patientFormState.bloodType,
@@ -368,7 +379,8 @@ function SecretarySchedulingPanel({ session }) {
   }
 
   const isPatientMinor = (getAge(patientFormState.dateOfBirth) ?? 99) < 18;
-  const canCreatePatient = !isPatientMinor || selectedGuardian !== null;
+  const createPatientJmbgLength = normalizeJmbgValue(patientFormState.jmbg).length;
+  const canCreatePatient = (!isPatientMinor || selectedGuardian !== null) && createPatientJmbgLength === 13;
 
   return (
     <div className="portal-stack">
@@ -504,7 +516,21 @@ function SecretarySchedulingPanel({ session }) {
                 </label>
                 <label>
                   <span>JMBG</span>
-                  <input onChange={(event) => updatePatientFormField('jmbg', event.target.value)} required type="text" value={patientFormState.jmbg} />
+                  <input
+                    inputMode="numeric"
+                    maxLength={13}
+                    onChange={(event) => updatePatientFormField('jmbg', event.target.value)}
+                    pattern="[0-9]{13}"
+                    placeholder="13 digits"
+                    required
+                    type="text"
+                    value={patientFormState.jmbg}
+                  />
+                  <p className={createPatientJmbgLength === 13 ? 'muted-hint' : 'warn-hint'}>
+                    {createPatientJmbgLength === 13
+                      ? 'JMBG length is valid (13/13).'
+                      : `JMBG must contain exactly 13 digits (${createPatientJmbgLength}/13 entered).`}
+                  </p>
                 </label>
                 <label>
                   <span>Gender</span>
