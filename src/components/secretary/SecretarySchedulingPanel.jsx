@@ -176,6 +176,38 @@ function SecretarySchedulingPanel({ session }) {
   useEffect(() => {
     let ignore = false;
 
+    async function loadAllPatients() {
+      setIsSearchingPatients(true);
+
+      try {
+        const response = await searchPatients(session.token, '');
+        if (!ignore) {
+          setPatients(response);
+          if (response.length === 0) {
+            setSelectedPatient(null);
+          }
+        }
+      } catch {
+        if (!ignore) {
+          setPatients([]);
+        }
+      } finally {
+        if (!ignore) {
+          setIsSearchingPatients(false);
+        }
+      }
+    }
+
+    loadAllPatients();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session.token]);
+
+  useEffect(() => {
+    let ignore = false;
+
     async function loadSelectedPatientAllergens() {
       if (!selectedPatient?.id) {
         setSelectedPatientAllergens([]);
@@ -248,19 +280,30 @@ function SecretarySchedulingPanel({ session }) {
   }
 
   function updateGuardianFormField(field, value) {
-    setGuardianFormState((current) => ({ ...current, [field]: value }));
+    setGuardianFormState((current) => ({
+      ...current,
+      [field]: field === 'jmbg' ? normalizeJmbgValue(value) : value,
+    }));
   }
 
   async function handleCreateGuardian() {
     setIsCreatingGuardian(true);
     setErrorMessage('');
+
+    const normalizedJmbg = normalizeJmbgValue(guardianFormState.jmbg);
+    if (normalizedJmbg.length !== 13) {
+      setIsCreatingGuardian(false);
+      setErrorMessage('Guardian JMBG must contain exactly 13 digits.');
+      return;
+    }
+
     try {
       const payload = {
         firstName: guardianFormState.firstName,
         lastName: guardianFormState.lastName,
         email: guardianFormState.email || null,
         phoneNumber: guardianFormState.phoneNumber,
-        jmbg: guardianFormState.jmbg,
+        jmbg: normalizedJmbg,
         gender: guardianFormState.gender,
         dateOfBirth: guardianFormState.dateOfBirth,
         addressId: null,
@@ -380,6 +423,7 @@ function SecretarySchedulingPanel({ session }) {
 
   const isPatientMinor = (getAge(patientFormState.dateOfBirth) ?? 99) < 18;
   const createPatientJmbgLength = normalizeJmbgValue(patientFormState.jmbg).length;
+  const createGuardianJmbgLength = normalizeJmbgValue(guardianFormState.jmbg).length;
   const canCreatePatient = (!isPatientMinor || selectedGuardian !== null) && createPatientJmbgLength === 13;
 
   return (
@@ -485,7 +529,7 @@ function SecretarySchedulingPanel({ session }) {
               <span>Search term</span>
               <input
                 onChange={(event) => setPatientSearchTerm(event.target.value)}
-                placeholder="Name, email, phone, or patient record"
+                placeholder="Name, email, phone, patient record, or leave empty for all"
                 type="text"
                 value={patientSearchTerm}
               />
@@ -589,7 +633,21 @@ function SecretarySchedulingPanel({ session }) {
                         </label>
                         <label>
                           <span>JMBG</span>
-                          <input onChange={(e) => updateGuardianFormField('jmbg', e.target.value)} required type="text" value={guardianFormState.jmbg} />
+                          <input
+                            inputMode="numeric"
+                            maxLength={13}
+                            onChange={(e) => updateGuardianFormField('jmbg', e.target.value)}
+                            pattern="[0-9]{13}"
+                            placeholder="13 digits"
+                            required
+                            type="text"
+                            value={guardianFormState.jmbg}
+                          />
+                          <p className={createGuardianJmbgLength === 13 ? 'muted-hint' : 'warn-hint'}>
+                            {createGuardianJmbgLength === 13
+                              ? 'Guardian JMBG length is valid (13/13).'
+                              : `Guardian JMBG must contain exactly 13 digits (${createGuardianJmbgLength}/13 entered).`}
+                          </p>
                         </label>
                         <label>
                           <span>Gender</span>
@@ -610,7 +668,7 @@ function SecretarySchedulingPanel({ session }) {
                           || !guardianFormState.firstName.trim()
                           || !guardianFormState.lastName.trim()
                           || !guardianFormState.phoneNumber.trim()
-                          || !guardianFormState.jmbg.trim()
+                          || createGuardianJmbgLength !== 13
                           || !guardianFormState.dateOfBirth
                           || (getAge(guardianFormState.dateOfBirth) ?? 0) < 18
                         }

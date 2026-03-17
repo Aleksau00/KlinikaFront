@@ -5,19 +5,19 @@ function RoleOverview({ roleSlug, session }) {
 
   const panelsByRole = {
     admin: {
-      title: 'Administrator shell is live.',
-      copy: 'The admin portal now exposes real shell modules for worker access and clinic visibility, in addition to the shared account panel.',
-      highlights: ['Administrator-only routes stay isolated behind this portal', 'Live worker directory and worker provisioning are available', 'Clinic list is available inside the admin shell'],
+      title: 'Administration workspace',
+      copy: 'From here you can manage staff accounts, review clinic information, and keep operations organized.',
+      highlights: ['Only administrators can access these tools', 'Staff accounts can be created and updated here', 'Clinic details are available in one place'],
     },
     doctor: {
-      title: 'Pediatric clinical workspace is active.',
-      copy: 'Use this portal to manage your daily pediatric appointments, complete visit notes, and review patient allergen and vaccination context before consultations.',
-      highlights: ['Appointment list shows active and completed visits', 'Patient context loads allergens, vaccinations, and prior appointments', 'Treatment and preventive note forms are available per visit type'],
+      title: 'Doctor workspace',
+      copy: 'Use this area to review your schedule, open patient records, and complete visit notes.',
+      highlights: ['Appointments show current and completed visits', 'Patient records include important medical context', 'Visit notes can be completed by appointment type'],
     },
     secretary: {
-      title: 'Pediatric front-desk workspace is active.',
-      copy: 'Use this portal to register pediatric patients, link guardians for minors under 18, and book appointments across available doctor slots.',
-      highlights: ['Minor patients require a guardian to be linked or created at intake', 'Guardian search filters to adults only', 'Patient list flags minors with missing guardian links'],
+      title: 'Front-desk workspace',
+      copy: 'Use this area to register patients, connect guardians for minors, and book appointments with available doctors.',
+      highlights: ['Patients under 18 must have a linked guardian', 'Guardians can be searched or created during intake', 'Scheduling tools help fill available doctor slots'],
     },
   };
 
@@ -62,8 +62,8 @@ function RoleOverview({ roleSlug, session }) {
         </article>
 
         <article className="workspace-panel workspace-panel-dark">
-          <p className="eyebrow">Validation</p>
-          <h2>Auth checks completed.</h2>
+          <p className="eyebrow">What You Can Do Here</p>
+          <h2>Role access summary</h2>
           <ul className="task-list dark-list">
             {content.highlights.map((item) => (
               <li key={item}>{item}</li>

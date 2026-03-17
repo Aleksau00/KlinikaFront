@@ -6,17 +6,17 @@ function PortalChooser({ getApiBaseUrlLabel }) {
     <main className="layout-shell">
       <section className="hero-panel">
         <div className="hero-copy-wrap">
-          <p className="eyebrow">Klinika Authentication</p>
-          <h1>Three login portals, one backend authorization flow.</h1>
+          <p className="eyebrow">Klinika Staff Access</p>
+          <h1>Choose your work area and sign in.</h1>
           <p className="support-copy">
-            The frontend authenticates workers against your .NET JWT endpoint and splits access into role-specific entry points for administrators, doctors, and secretaries.
+            This page is for clinic staff. Select your role to open the tools you use every day.
           </p>
         </div>
 
         <div className="status-card">
-          <span className="status-label">API route</span>
+          <span className="status-label">System connection</span>
           <strong>{getApiBaseUrlLabel()}</strong>
-          <p>Self-sign-up is not enabled in the backend. Staff creation currently belongs to administrators only.</p>
+          <p>New staff accounts are created by clinic administration.</p>
         </div>
       </section>
 
@@ -32,7 +32,7 @@ function PortalChooser({ getApiBaseUrlLabel }) {
               ))}
             </ul>
             <Link className="primary-link" to={config.loginPath}>
-              Continue to {config.label} login
+              Open {config.label} sign in
             </Link>
           </article>
         ))}

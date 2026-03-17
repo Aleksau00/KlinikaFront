@@ -158,9 +158,9 @@ function AuthApplication() {
       {isRestoringSession ? (
         <main className="boot-screen">
           <section className="boot-card">
-            <p className="eyebrow">Restoring Session</p>
-            <h1>Checking your existing Klinika token.</h1>
-            <p className="support-copy">The frontend is validating the stored JWT against the backend before continuing.</p>
+            <p className="eyebrow">Signing You In</p>
+            <h1>Restoring your previous session.</h1>
+            <p className="support-copy">Please wait while we open your workspace.</p>
           </section>
         </main>
       ) : (
@@ -245,10 +245,10 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
     <main className="layout-shell">
       <section className="workspace-hero">
         <div>
-          <p className="eyebrow">Authenticated</p>
+          <p className="eyebrow">Signed In</p>
           <h1>{config.label} portal.</h1>
           <p className="support-copy">
-            Shared account access is now available in every role panel. The administrator portal includes live staff and clinic modules on top of the authentication shell.
+            Use the menu to open the tools available for your role.
           </p>
         </div>
 
@@ -312,13 +312,13 @@ function getPortalNav(roleSlug) {
     {
       key: 'overview',
       label: `${config.label} overview`,
-      description: 'Role-specific landing panel',
+      description: 'Quick summary and key information',
       path: basePath,
     },
     {
       key: 'account',
       label: 'My account',
-      description: 'Personal session and identity data',
+      description: 'Your profile and account details',
       path: `${basePath}/account`,
     },
   ];
@@ -328,19 +328,19 @@ function getPortalNav(roleSlug) {
       {
         key: 'admin-desk',
         label: 'Admin desk',
-        description: 'Administrative shell and module map',
+        description: 'Overview of administrative tools',
         path: `${basePath}/admin-desk`,
       },
       {
         key: 'staff',
         label: 'Staff',
-        description: 'Worker directory and account provisioning',
+        description: 'Staff directory and account management',
         path: `${basePath}/staff`,
       },
       {
         key: 'clinics',
         label: 'Clinics',
-        description: 'Clinic directory snapshot',
+        description: 'Clinic list and details',
         path: `${basePath}/clinics`,
       },
     );
@@ -351,25 +351,25 @@ function getPortalNav(roleSlug) {
       {
         key: 'desk-scheduling',
         label: 'Desk scheduling',
-        description: 'Doctor slots, patient selection, and booking',
+        description: 'Doctor availability and appointment booking',
         path: `${basePath}/desk-scheduling`,
       },
       {
         key: 'desk-patients',
         label: 'Desk patients',
-        description: 'Patient record updates and guardian linking',
+        description: 'Patient details and guardian links',
         path: `${basePath}/desk-patients`,
       },
       {
         key: 'desk-guardians',
         label: 'Desk guardians',
-        description: 'Guardian search, registration, and maintenance',
+        description: 'Guardian search and registration',
         path: `${basePath}/desk-guardians`,
       },
       {
         key: 'desk-appointments',
         label: 'Desk appointments',
-        description: 'Patient and doctor appointment lookup/actions',
+        description: 'Appointment search and updates',
         path: `${basePath}/desk-appointments`,
       },
     );
@@ -380,19 +380,19 @@ function getPortalNav(roleSlug) {
       {
         key: 'my-slots',
         label: 'My slots',
-        description: 'Create and manage availability slots',
+        description: 'Create and manage available time slots',
         path: `${basePath}/my-slots`,
       },
       {
         key: 'my-patients',
         label: 'My patients',
-        description: 'Patient overview, history, and safety context',
+        description: 'Patient overview and history',
         path: `${basePath}/my-patients`,
       },
       {
         key: 'my-appointments',
         label: 'My appointments',
-        description: 'Schedule for the day, complete or no-show',
+        description: 'Daily schedule and visit updates',
         path: `${basePath}/my-appointments`,
       },
     );

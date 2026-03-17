@@ -30,14 +30,14 @@ function RoleLoginScreen({ onLogin, roleSlug }) {
       <section className="login-layout">
         <article className={`portal-card portal-card-large ${config.themeClass}`}>
           <Link className="secondary-link" to="/">
-            Back to portal selection
+            Back to role selection
           </Link>
           <p className="eyebrow">{config.eyebrow}</p>
           <h1>{config.title}</h1>
           <p className="support-copy">{config.helper}</p>
 
           <div className="sample-box">
-            <span className="status-label">Seeded test account</span>
+            <span className="status-label">Demo account</span>
             <strong>{config.sampleEmail}</strong>
             <span>Password: {config.samplePassword}</span>
           </div>
@@ -47,7 +47,7 @@ function RoleLoginScreen({ onLogin, roleSlug }) {
           <div className="auth-card-header">
             <p className="eyebrow">Sign In</p>
             <h2>{config.label} login</h2>
-            <p>Use the same worker credentials issued by the backend. The portal rejects users whose returned role does not match this screen.</p>
+            <p>Use your assigned clinic email and password.</p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>

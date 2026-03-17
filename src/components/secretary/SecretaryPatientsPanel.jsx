@@ -96,7 +96,10 @@ function SecretaryPatientsPanel({ session }) {
   }
 
   function updateGuardianFormField(field, value) {
-    setGuardianFormState((current) => ({ ...current, [field]: value }));
+    setGuardianFormState((current) => ({
+      ...current,
+      [field]: field === 'jmbg' ? normalizeJmbgValue(value) : value,
+    }));
   }
 
   function updateEditPatientField(field, value) {
@@ -171,13 +174,20 @@ function SecretaryPatientsPanel({ session }) {
     setErrorMessage('');
     setStatusMessage('');
 
+    const normalizedJmbg = normalizeJmbgValue(guardianFormState.jmbg);
+    if (normalizedJmbg.length !== 13) {
+      setIsCreatingGuardian(false);
+      setErrorMessage('Guardian JMBG must contain exactly 13 digits.');
+      return;
+    }
+
     try {
       const payload = {
         firstName: guardianFormState.firstName,
         lastName: guardianFormState.lastName,
         email: guardianFormState.email || null,
         phoneNumber: guardianFormState.phoneNumber,
-        jmbg: guardianFormState.jmbg,
+        jmbg: normalizedJmbg,
         gender: guardianFormState.gender,
         dateOfBirth: guardianFormState.dateOfBirth,
         addressId: null,
@@ -318,6 +328,7 @@ function SecretaryPatientsPanel({ session }) {
   const isPatientMinor = (getAge(patientFormState.dateOfBirth) ?? 99) < 18;
   const isEditPatientMinor = (getAge(editPatientState.dateOfBirth) ?? 99) < 18;
   const createPatientJmbgLength = normalizeJmbgValue(patientFormState.jmbg).length;
+  const createGuardianJmbgLength = normalizeJmbgValue(guardianFormState.jmbg).length;
   const canCreatePatient = (!isPatientMinor || selectedGuardian !== null) && createPatientJmbgLength === 13;
 
   return (
@@ -346,7 +357,7 @@ function SecretaryPatientsPanel({ session }) {
             <span>Search term</span>
             <input
               onChange={(event) => setPatientSearchTerm(event.target.value)}
-              placeholder="Name, email, phone, or patient record"
+              placeholder="Name, email, phone, patient record, or leave empty for all"
               type="text"
               value={patientSearchTerm}
             />
@@ -475,7 +486,21 @@ function SecretaryPatientsPanel({ session }) {
                       </label>
                       <label>
                         <span>JMBG</span>
-                        <input onChange={(event) => updateGuardianFormField('jmbg', event.target.value)} required type="text" value={guardianFormState.jmbg} />
+                        <input
+                          inputMode="numeric"
+                          maxLength={13}
+                          onChange={(event) => updateGuardianFormField('jmbg', event.target.value)}
+                          pattern="[0-9]{13}"
+                          placeholder="13 digits"
+                          required
+                          type="text"
+                          value={guardianFormState.jmbg}
+                        />
+                        <p className={createGuardianJmbgLength === 13 ? 'muted-hint' : 'warn-hint'}>
+                          {createGuardianJmbgLength === 13
+                            ? 'Guardian JMBG length is valid (13/13).'
+                            : `Guardian JMBG must contain exactly 13 digits (${createGuardianJmbgLength}/13 entered).`}
+                        </p>
                       </label>
                       <label>
                         <span>Gender</span>
@@ -496,7 +521,7 @@ function SecretaryPatientsPanel({ session }) {
                         || !guardianFormState.firstName.trim()
                         || !guardianFormState.lastName.trim()
                         || !guardianFormState.phoneNumber.trim()
-                        || !guardianFormState.jmbg.trim()
+                        || createGuardianJmbgLength !== 13
                         || !guardianFormState.dateOfBirth
                         || (getAge(guardianFormState.dateOfBirth) ?? 0) < 18
                       }
