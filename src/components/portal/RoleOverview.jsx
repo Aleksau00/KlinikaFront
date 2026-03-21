@@ -7,17 +7,14 @@ function RoleOverview({ roleSlug, session }) {
     admin: {
       title: 'Administration workspace',
       copy: 'From here you can manage staff accounts, review clinic information, and keep operations organized.',
-      highlights: ['Only administrators can access these tools', 'Staff accounts can be created and updated here', 'Clinic details are available in one place'],
     },
     doctor: {
       title: 'Doctor workspace',
       copy: 'Use this area to review your schedule, open patient records, and complete visit notes.',
-      highlights: ['Appointments show current and completed visits', 'Patient records include important medical context', 'Visit notes can be completed by appointment type'],
     },
     secretary: {
       title: 'Front-desk workspace',
       copy: 'Use this area to register patients, connect guardians for minors, and book appointments with available doctors.',
-      highlights: ['Patients under 18 must have a linked guardian', 'Guardians can be searched or created during intake', 'Scheduling tools help fill available doctor slots'],
     },
   };
 
@@ -57,16 +54,6 @@ function RoleOverview({ roleSlug, session }) {
           <ul className="task-list">
             {config.tasks.map((task) => (
               <li key={task}>{task}</li>
-            ))}
-          </ul>
-        </article>
-
-        <article className="workspace-panel workspace-panel-dark">
-          <p className="eyebrow">What You Can Do Here</p>
-          <h2>Role access summary</h2>
-          <ul className="task-list dark-list">
-            {content.highlights.map((item) => (
-              <li key={item}>{item}</li>
             ))}
           </ul>
         </article>

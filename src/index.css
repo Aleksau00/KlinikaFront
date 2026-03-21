@@ -698,6 +698,15 @@ input {
   min-width: 0;
 }
 
+.data-row[role='button'] {
+  cursor: pointer;
+}
+
+.data-row[role='button']:focus-visible {
+  outline: 2px solid rgba(15, 90, 102, 0.3);
+  outline-offset: 2px;
+}
+
 .data-row-selected {
   border-color: rgba(15, 90, 102, 0.34);
   box-shadow: 0 10px 24px rgba(15, 90, 102, 0.12);
@@ -723,6 +732,20 @@ input {
 .data-row-editable {
   grid-template-columns: 1fr auto auto;
   align-items: center;
+}
+
+.admin-staff-list,
+.admin-staff-row {
+  width: 100%;
+}
+
+.admin-staff-row {
+  grid-template-columns: minmax(220px, 1fr) minmax(130px, auto) auto;
+}
+
+.admin-staff-row .row-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .row-actions {
@@ -999,6 +1022,53 @@ input {
   min-width: 0;
 }
 
+.doctor-filter-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.doctor-search-field,
+.compact-date-field {
+  display: grid;
+  gap: 8px;
+}
+
+.doctor-filter-row span {
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.doctor-search-field input {
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(29, 36, 51, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+}
+
+.compact-date-field input {
+  width: 160px;
+  min-height: 52px;
+  padding: 0 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(29, 36, 51, 0.12);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+}
+
+.lookup-results-divider {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.lookup-results-divider h3 {
+  margin: 0 0 10px;
+}
+
 @media (max-width: 980px) {
   .hero-panel,
   .workspace-hero,
@@ -1021,6 +1091,15 @@ input {
   .secretary-card-wide,
   .secretary-card-regular {
     grid-column: span 1;
+  }
+
+  .doctor-filter-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .compact-date-field input {
+    width: 100%;
   }
 }
 

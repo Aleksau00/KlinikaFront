@@ -232,7 +232,23 @@ function SecretaryGuardiansPanel({ session }) {
 
         <div className="data-list data-list-scroll" style={{ marginTop: '0.75rem' }}>
           {guardians.map((guardian) => (
-            <article className={`data-row${selectedGuardian?.id === guardian.id ? ' data-row-selected' : ''}`} key={guardian.id}>
+            <article
+              className={`data-row${selectedGuardian?.id === guardian.id ? ' data-row-selected' : ''}`}
+              key={guardian.id}
+              onClick={() => {
+                setSelectedGuardian(guardian);
+                playUiFeedbackSound('select');
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setSelectedGuardian(guardian);
+                  playUiFeedbackSound('select');
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
               <div>
                 <strong>{guardian.firstName} {guardian.lastName}</strong>
                 <p>{guardian.email || guardian.phoneNumber || 'No contact details'}</p>
@@ -243,7 +259,8 @@ function SecretaryGuardiansPanel({ session }) {
               <div className="row-actions">
                 <button
                   className={selectedGuardian?.id === guardian.id ? 'primary-button' : 'ghost-button'}
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setSelectedGuardian(guardian);
                     playUiFeedbackSound('select');
                   }}

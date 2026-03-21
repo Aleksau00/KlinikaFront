@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { roleConfig } from '../../config/roles';
 
-function RoleLoginScreen({ onLogin, roleSlug }) {
-  const config = roleConfig[roleSlug];
+function RoleLoginScreen({ onLogin }) {
   const navigate = useNavigate();
-  const [email, setEmail] = useState(config.sampleEmail);
-  const [password, setPassword] = useState(config.samplePassword);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -16,8 +15,8 @@ function RoleLoginScreen({ onLogin, roleSlug }) {
     setIsSubmitting(true);
 
     try {
-      await onLogin(roleSlug, { email, password });
-      navigate(config.portalPath, { replace: true });
+      const nextSession = await onLogin({ email, password });
+      navigate(roleConfig[nextSession.roleSlug]?.portalPath || '/', { replace: true });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Login failed.');
     } finally {
@@ -28,26 +27,17 @@ function RoleLoginScreen({ onLogin, roleSlug }) {
   return (
     <main className="layout-shell">
       <section className="login-layout">
-        <article className={`portal-card portal-card-large ${config.themeClass}`}>
-          <Link className="secondary-link" to="/">
-            Back to role selection
-          </Link>
-          <p className="eyebrow">{config.eyebrow}</p>
-          <h1>{config.title}</h1>
-          <p className="support-copy">{config.helper}</p>
-
-          <div className="sample-box">
-            <span className="status-label">Demo account</span>
-            <strong>{config.sampleEmail}</strong>
-            <span>Password: {config.samplePassword}</span>
-          </div>
+        <article className="portal-card portal-card-large">
+          <p className="eyebrow">Klinika Staff Access</p>
+          <h1>Sign In</h1>
+          <p className="support-copy">Use your assigned clinic email and password.</p>
         </article>
 
         <article className="auth-card">
           <div className="auth-card-header">
             <p className="eyebrow">Sign In</p>
-            <h2>{config.label} login</h2>
-            <p>Use your assigned clinic email and password.</p>
+            <h2>Staff login</h2>
+            <p>You will be redirected to the correct workspace based on your role.</p>
           </div>
 
           <form className="auth-form" onSubmit={handleSubmit}>
@@ -69,7 +59,7 @@ function RoleLoginScreen({ onLogin, roleSlug }) {
             {errorMessage ? <p className="error-banner">{errorMessage}</p> : null}
 
             <button className="primary-button" disabled={isSubmitting} type="submit">
-              {isSubmitting ? 'Signing in...' : `Sign in as ${config.label}`}
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
         </article>

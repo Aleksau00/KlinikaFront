@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   createCustomSlots,
   createSlot,
-  createWeeklySlots,
   deleteSlot,
   fetchMySlots,
   markSlotUnavailable,
@@ -49,8 +48,6 @@ function DoctorSlotsPanel({ session }) {
   const [singleDate, setSingleDate] = useState(formatDateForInput(new Date()));
   const [singleStartTime, setSingleStartTime] = useState(initialStartTime);
   const [isCreatingSingle, setIsCreatingSingle] = useState(false);
-
-  const [isCreatingWeekly, setIsCreatingWeekly] = useState(false);
 
   const [customStartTime, setCustomStartTime] = useState(initialStartTime);
   const [customEndTime, setCustomEndTime] = useState(getDefaultCustomEndTime(initialStartTime));
@@ -131,23 +128,6 @@ function DoctorSlotsPanel({ session }) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to create slot.');
     } finally {
       setIsCreatingSingle(false);
-    }
-  }
-
-  async function handleCreateWeekly() {
-    setIsCreatingWeekly(true);
-    setErrorMessage('');
-    setStatusMessage('');
-
-    try {
-      const result = await createWeeklySlots(session.token);
-      setStatusMessage(result?.Message || 'Weekly slots created.');
-      playUiFeedbackSound('created');
-      refreshSlots();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to create weekly slots.');
-    } finally {
-      setIsCreatingWeekly(false);
     }
   }
 
@@ -383,8 +363,8 @@ function DoctorSlotsPanel({ session }) {
         </article>
 
         <article className="workspace-panel">
-          <p className="eyebrow">Custom batch</p>
-          <h2>Custom range</h2>
+          <p className="eyebrow">Batch generator</p>
+          <h2>Custom slots</h2>
           <form className="admin-form" onSubmit={handleCreateCustom}>
             <div className="form-grid">
               <label>
@@ -419,31 +399,11 @@ function DoctorSlotsPanel({ session }) {
               </label>
             </div>
             <button className="primary-button" disabled={isCreatingCustom} type="submit">
-              {isCreatingCustom ? 'Generating…' : 'Generate custom slots'}
+              {isCreatingCustom ? 'Generating…' : 'Generate slots'}
             </button>
           </form>
         </article>
       </div>
-
-      {/* Weekly batch — full width */}
-      <article className="workspace-panel">
-        <div className="panel-heading-row">
-          <div>
-            <p className="eyebrow">Weekly batch</p>
-            <h2>Next 7 days</h2>
-            <p>Generates slots at 8, 9, 10, 11, 14, 15 and 16:00 for the next 7 days based on your doctor account defaults.</p>
-          </div>
-          <button
-            className="primary-button"
-            disabled={isCreatingWeekly}
-            onClick={handleCreateWeekly}
-            style={{ alignSelf: 'center', flexShrink: 0 }}
-            type="button"
-          >
-            {isCreatingWeekly ? 'Generating…' : 'Generate weekly slots'}
-          </button>
-        </div>
-      </article>
     </div>
   );
 }

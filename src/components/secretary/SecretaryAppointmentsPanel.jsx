@@ -22,6 +22,7 @@ function SecretaryAppointmentsPanel({ session }) {
   const [patientAppointments, setPatientAppointments] = useState([]);
 
   const [doctors, setDoctors] = useState([]);
+  const [doctorSearchTerm, setDoctorSearchTerm] = useState('');
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [fromDate, setFromDate] = useState(formatDateForInput(new Date()));
   const [toDate, setToDate] = useState(formatDateForInput(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
@@ -46,6 +47,40 @@ function SecretaryAppointmentsPanel({ session }) {
       setToDate(fromDate);
     }
   }, [fromDate, toDate]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadInitialPatients() {
+      setIsSearchingPatients(true);
+
+      try {
+        const response = await searchPatients(session.token, '');
+
+        if (!ignore) {
+          setPatients(response);
+          if (response.length === 0) {
+            setSelectedPatient(null);
+            setPatientAppointments([]);
+          }
+        }
+      } catch (error) {
+        if (!ignore) {
+          setErrorMessage(error instanceof Error ? error.message : 'Unable to load patients.');
+        }
+      } finally {
+        if (!ignore) {
+          setIsSearchingPatients(false);
+        }
+      }
+    }
+
+    loadInitialPatients();
+
+    return () => {
+      ignore = true;
+    };
+  }, [session.token]);
 
   useEffect(() => {
     let ignore = false;
@@ -211,6 +246,13 @@ function SecretaryAppointmentsPanel({ session }) {
     }
   }
 
+  function handleSelectDoctor(doctorId) {
+    setSelectedDoctorId(String(doctorId));
+    setErrorMessage('');
+    setStatusMessage('');
+    playUiFeedbackSound('select');
+  }
+
   async function handleCheckIn(appointmentId) {
     setActionAppointmentId(appointmentId);
     setErrorMessage('');
@@ -309,6 +351,18 @@ function SecretaryAppointmentsPanel({ session }) {
     }
   }
 
+  const normalizedDoctorTerm = doctorSearchTerm.trim().toLowerCase();
+  const filteredDoctors = normalizedDoctorTerm
+    ? doctors.filter((doctor) => {
+      const fullName = `${doctor.firstName || ''} ${doctor.lastName || ''}`.toLowerCase();
+      const specialty = String(doctor.specialty || '').toLowerCase();
+      const email = String(doctor.email || '').toLowerCase();
+      return fullName.includes(normalizedDoctorTerm)
+        || specialty.includes(normalizedDoctorTerm)
+        || email.includes(normalizedDoctorTerm);
+    })
+    : doctors;
+
   return (
     <div className="portal-stack">
       <article className="workspace-panel theme-secretary">
@@ -333,6 +387,7 @@ function SecretaryAppointmentsPanel({ session }) {
               <h2>Find patient appointments</h2>
             </div>
           </div>
+          <p className="muted-hint">Recent patients are shown below even before search.</p>
 
           <form className="auth-form" onSubmit={handleSearchPatients}>
             <label>
@@ -351,7 +406,19 @@ function SecretaryAppointmentsPanel({ session }) {
 
           <div className="data-list data-list-scroll">
             {patients.map((patient) => (
-              <article className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`} key={patient.id}>
+              <article
+                className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`}
+                key={patient.id}
+                onClick={() => handleSelectPatient(patient)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleSelectPatient(patient);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
                 <div>
                   <strong>{patient.firstName} {patient.lastName}</strong>
                   <p>{patient.email || patient.phoneNumber || 'No contact details'}</p>
@@ -361,7 +428,14 @@ function SecretaryAppointmentsPanel({ session }) {
                   <small>No-show count: {patient.noShowCount}</small>
                 </div>
                 <div className="row-actions">
-                  <button className={selectedPatient?.id === patient.id ? 'primary-button' : 'ghost-button'} onClick={() => handleSelectPatient(patient)} type="button">
+                  <button
+                    className={selectedPatient?.id === patient.id ? 'primary-button' : 'ghost-button'}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleSelectPatient(patient);
+                    }}
+                    type="button"
+                  >
                     {selectedPatient?.id === patient.id ? 'Selected' : 'Select'}
                   </button>
                 </div>
@@ -382,50 +456,90 @@ function SecretaryAppointmentsPanel({ session }) {
         <article className="workspace-panel secretary-card-wide">
           <p className="eyebrow">Doctor lookup</p>
           <h2>Doctor appointment schedule</h2>
+          <p className="muted-hint">Choose a doctor from the list and set a date range.</p>
 
           {isLoadingDoctors ? <p>Loading doctors...</p> : null}
 
           {!isLoadingDoctors ? (
-            <div className="admin-form">
-              <div className="form-grid">
-                <label>
-                  <span>Doctor</span>
-                  <select
-                    onChange={(event) => {
-                      setSelectedDoctorId(event.target.value);
-                      playUiFeedbackSound('select');
-                    }}
-                    value={selectedDoctorId}
-                  >
-                    <option value="">Select doctor</option>
-                    {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.id}>
-                        {doctor.firstName} {doctor.lastName} ({doctor.specialty || 'General'})
-                      </option>
-                    ))}
-                  </select>
+            <>
+              <form
+                className="doctor-filter-row"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                }}
+              >
+                <label className="doctor-search-field">
+                  <span>Search doctor</span>
+                  <input
+                    onChange={(event) => setDoctorSearchTerm(event.target.value)}
+                    placeholder="Name, specialty, or email"
+                    type="text"
+                    value={doctorSearchTerm}
+                  />
                 </label>
-                <label>
+                <label className="compact-date-field">
                   <span>From date</span>
                   <input onChange={(event) => setFromDate(event.target.value)} type="date" value={fromDate} />
                 </label>
-                <label>
+                <label className="compact-date-field">
                   <span>To date</span>
                   <input min={fromDate} onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} />
                 </label>
+              </form>
+
+              <div className="data-list data-list-scroll">
+                {filteredDoctors.map((doctor) => (
+                  <article
+                    className={`data-row${selectedDoctorId === String(doctor.id) ? ' data-row-selected' : ''}`}
+                    key={doctor.id}
+                    onClick={() => handleSelectDoctor(doctor.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleSelectDoctor(doctor.id);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div>
+                      <strong>Dr. {doctor.firstName} {doctor.lastName}</strong>
+                      <p>{doctor.email || doctor.phoneNumber || 'No contact details'}</p>
+                    </div>
+                    <div className="data-meta">
+                      <span>{doctor.specialty || 'General medicine'}</span>
+                    </div>
+                    <div className="row-actions">
+                      <button
+                        className={selectedDoctorId === String(doctor.id) ? 'primary-button' : 'ghost-button'}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleSelectDoctor(doctor.id);
+                        }}
+                        type="button"
+                      >
+                        {selectedDoctorId === String(doctor.id) ? 'Selected' : 'Select'}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+                {!filteredDoctors.length ? <p className="muted-hint">No doctors match this search.</p> : null}
               </div>
-            </div>
+            </>
           ) : null}
 
           {isLoadingDoctorAppointments ? <p>Loading doctor appointments...</p> : null}
           {!isLoadingDoctorAppointments ? (
-            <AppointmentLifecycleList
-              actionAppointmentId={actionAppointmentId}
-              appointments={doctorAppointments}
-              onCancel={handleCancel}
-              onCheckIn={handleCheckIn}
-              onNoShow={handleNoShow}
-            />
+            <div className="lookup-results-divider">
+              <h3>Doctor appointments</h3>
+              <AppointmentLifecycleList
+                actionAppointmentId={actionAppointmentId}
+                appointments={doctorAppointments}
+                onCancel={handleCancel}
+                onCheckIn={handleCheckIn}
+                onNoShow={handleNoShow}
+              />
+            </div>
           ) : null}
         </article>
 

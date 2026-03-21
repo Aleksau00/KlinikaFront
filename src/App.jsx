@@ -9,15 +9,12 @@ import {
 } from 'react-router-dom';
 import {
   fetchCurrentWorker,
-  getApiBaseUrlLabel,
   loginWorker,
 } from './lib/api';
 import { roleConfig, roleSlugByApiRole } from './config/roles';
 import AccountPanel from './components/account/AccountPanel';
 import AdminClinicsPanel from './components/admin/AdminClinicsPanel';
-import AdminDeskPanel from './components/admin/AdminDeskPanel';
 import AdminStaffPanel from './components/admin/AdminStaffPanel';
-import PortalChooser from './components/portal/PortalChooser';
 import RoleLoginScreen from './components/portal/RoleLoginScreen';
 import RoleOverview from './components/portal/RoleOverview';
 import SecretaryAppointmentsPanel from './components/secretary/SecretaryAppointmentsPanel';
@@ -103,16 +100,12 @@ function AuthApplication() {
     };
   }, []);
 
-  async function handleLogin(roleSlug, credentials) {
+  async function handleLogin(credentials) {
     const loginResponse = await loginWorker(credentials);
     const resolvedRoleSlug = roleSlugByApiRole[loginResponse.role];
 
     if (!resolvedRoleSlug) {
       throw new Error('The backend returned an unsupported worker role.');
-    }
-
-    if (resolvedRoleSlug !== roleSlug) {
-      throw new Error(`${loginResponse.role} accounts must use the ${roleConfig[resolvedRoleSlug].label} login screen.`);
     }
 
     const worker = await fetchCurrentWorker(loginResponse.token);
@@ -165,8 +158,8 @@ function AuthApplication() {
         </main>
       ) : (
         <Routes>
-          <Route path="/" element={<HomeRoute session={session} />} />
-          <Route path="/login/:roleSlug" element={<LoginRoute onLogin={handleLogin} session={session} />} />
+          <Route path="/" element={<LoginRoute onLogin={handleLogin} session={session} />} />
+          <Route path="/login" element={<LoginRoute onLogin={handleLogin} session={session} />} />
           <Route
             path="/portal/:roleSlug"
             element={<PortalRoute onLogout={handleLogout} onRefreshSession={handleRefreshSession} session={session} />}
@@ -175,33 +168,19 @@ function AuthApplication() {
             path="/portal/:roleSlug/:section"
             element={<PortalRoute onLogout={handleLogout} onRefreshSession={handleRefreshSession} session={session} />}
           />
-          <Route path="*" element={<Navigate replace to={session ? roleConfig[session.roleSlug]?.portalPath || '/' : '/'} />} />
+          <Route path="*" element={<Navigate replace to={session ? roleConfig[session.roleSlug]?.portalPath || '/' : '/login'} />} />
         </Routes>
       )}
     </div>
   );
 }
 
-function HomeRoute({ session }) {
-  if (session?.roleSlug && roleConfig[session.roleSlug]) {
-    return <Navigate replace to={roleConfig[session.roleSlug].portalPath} />;
-  }
-
-  return <PortalChooser getApiBaseUrlLabel={getApiBaseUrlLabel} />;
-}
-
 function LoginRoute({ onLogin, session }) {
-  const { roleSlug } = useParams();
-
-  if (!roleConfig[roleSlug]) {
-    return <Navigate replace to="/" />;
-  }
-
   if (session?.roleSlug && roleConfig[session.roleSlug]) {
     return <Navigate replace to={roleConfig[session.roleSlug].portalPath} />;
   }
 
-  return <RoleLoginScreen onLogin={onLogin} roleSlug={roleSlug} />;
+  return <RoleLoginScreen onLogin={onLogin} />;
 }
 
 function PortalRoute({ onLogout, onRefreshSession, session }) {
@@ -209,7 +188,7 @@ function PortalRoute({ onLogout, onRefreshSession, session }) {
   const config = roleConfig[roleSlug];
 
   if (!session?.token) {
-    return <Navigate replace to={config?.loginPath || '/'} />;
+    return <Navigate replace to="/login" />;
   }
 
   if (roleSlug !== session.roleSlug) {
@@ -247,9 +226,6 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
         <div>
           <p className="eyebrow">Signed In</p>
           <h1>{config.label} portal.</h1>
-          <p className="support-copy">
-            Use the menu to open the tools available for your role.
-          </p>
         </div>
 
         <div className="workspace-actions">
@@ -263,7 +239,6 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
       <section className="portal-shell">
         <aside className="portal-sidebar">
           <div className={`sidebar-identity ${config.themeClass}`}>
-            <p className="eyebrow">Signed in</p>
             <strong>{[session.worker?.firstName, session.worker?.lastName].filter(Boolean).join(' ') || session.email}</strong>
             <span>{session.worker?.email || session.email}</span>
             <small>{session.worker?.clinicName || 'No clinic assigned'}</small>
@@ -288,7 +263,6 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
         <section className="portal-content">
           {section === 'overview' ? <RoleOverview roleSlug={roleSlug} session={session} /> : null}
           {section === 'account' ? <AccountPanel onRefreshSession={onRefreshSession} roleSlug={roleSlug} session={session} /> : null}
-          {section === 'admin-desk' ? <AdminDeskPanel session={session} /> : null}
           {section === 'staff' ? <AdminStaffPanel session={session} /> : null}
           {section === 'clinics' ? <AdminClinicsPanel session={session} /> : null}
           {section === 'desk-scheduling' ? <SecretarySchedulingPanel session={session} /> : null}
@@ -325,12 +299,6 @@ function getPortalNav(roleSlug) {
 
   if (roleSlug === 'admin') {
     items.push(
-      {
-        key: 'admin-desk',
-        label: 'Admin desk',
-        description: 'Overview of administrative tools',
-        path: `${basePath}/admin-desk`,
-      },
       {
         key: 'staff',
         label: 'Staff',

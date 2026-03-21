@@ -424,9 +424,9 @@ function AdminStaffPanel({ session }) {
         <h2>Existing workers</h2>
         {isLoading ? <p>Loading worker directory...</p> : null}
         {!isLoading ? (
-          <div className="data-list data-list-scroll">
+          <div className="data-list data-list-scroll admin-staff-list">
             {workers.map((worker) => (
-              <article className={`data-row data-row-editable${worker.isActive ? '' : ' data-row-inactive'}`} key={worker.id}>
+              <article className={`data-row data-row-editable admin-staff-row${worker.isActive ? '' : ' data-row-inactive'}`} key={worker.id}>
                 <div>
                   <strong>{worker.firstName} {worker.lastName}</strong>
                   <p>{worker.email}</p>

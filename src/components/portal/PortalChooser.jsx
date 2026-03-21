@@ -32,7 +32,7 @@ function PortalChooser({ getApiBaseUrlLabel }) {
               ))}
             </ul>
             <Link className="primary-link" to={config.loginPath}>
-              Open {config.label} sign in
+              Sign In
             </Link>
           </article>
         ))}

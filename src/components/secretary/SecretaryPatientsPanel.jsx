@@ -369,7 +369,19 @@ function SecretaryPatientsPanel({ session }) {
 
         <div className="data-list data-list-scroll">
           {patients.map((patient) => (
-            <article className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`} key={patient.id}>
+            <article
+              className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`}
+              key={patient.id}
+              onClick={() => selectPatient(patient)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  selectPatient(patient);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
               <div>
                 <strong>{patient.firstName} {patient.lastName}</strong>
                 <p>{patient.email || patient.phoneNumber || 'No contact details'}</p>
@@ -379,7 +391,7 @@ function SecretaryPatientsPanel({ session }) {
                 <small>No-show count: {patient.noShowCount}</small>
               </div>
               <div className="row-actions">
-                <button className={selectedPatient?.id === patient.id ? 'primary-button' : 'ghost-button'} onClick={() => selectPatient(patient)} type="button">
+                <button className={selectedPatient?.id === patient.id ? 'primary-button' : 'ghost-button'} onClick={(event) => { event.stopPropagation(); selectPatient(patient); }} type="button">
                   {selectedPatient?.id === patient.id ? 'Selected' : 'Select'}
                 </button>
               </div>
@@ -552,7 +564,19 @@ function SecretaryPatientsPanel({ session }) {
                     {guardianResults.length > 0 ? (
                       <div className="data-list">
                         {guardianResults.map((g) => (
-                          <article className={`data-row${selectedGuardian?.id === g.id ? ' data-row-selected' : ''}`} key={g.id}>
+                          <article
+                            className={`data-row${selectedGuardian?.id === g.id ? ' data-row-selected' : ''}`}
+                            key={g.id}
+                            onClick={() => setSelectedGuardian((current) => (current?.id === g.id ? null : g))}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setSelectedGuardian((current) => (current?.id === g.id ? null : g));
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                          >
                             <div>
                               <strong>{g.firstName} {g.lastName}</strong>
                               <p>{g.email || g.phoneNumber || 'No contact details'}</p>
@@ -560,7 +584,10 @@ function SecretaryPatientsPanel({ session }) {
                             <div className="row-actions">
                               <button
                                 className={selectedGuardian?.id === g.id ? 'primary-button' : 'ghost-button'}
-                                onClick={() => setSelectedGuardian((current) => (current?.id === g.id ? null : g))}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelectedGuardian((current) => (current?.id === g.id ? null : g));
+                                }}
                                 type="button"
                               >
                                 {selectedGuardian?.id === g.id ? 'Selected ✓' : 'Select'}
@@ -659,7 +686,19 @@ function SecretaryPatientsPanel({ session }) {
               {editGuardianResults.length > 0 ? (
                 <div className="data-list">
                   {editGuardianResults.map((g) => (
-                    <article className={`data-row${selectedEditGuardian?.id === g.id ? ' data-row-selected' : ''}`} key={g.id}>
+                    <article
+                      className={`data-row${selectedEditGuardian?.id === g.id ? ' data-row-selected' : ''}`}
+                      key={g.id}
+                      onClick={() => setSelectedEditGuardian((current) => (current?.id === g.id ? null : g))}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedEditGuardian((current) => (current?.id === g.id ? null : g));
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <div>
                         <strong>{g.firstName} {g.lastName}</strong>
                         <p>{g.email || g.phoneNumber || 'No contact details'}</p>
@@ -667,7 +706,10 @@ function SecretaryPatientsPanel({ session }) {
                       <div className="row-actions">
                         <button
                           className={selectedEditGuardian?.id === g.id ? 'primary-button' : 'ghost-button'}
-                          onClick={() => setSelectedEditGuardian((current) => (current?.id === g.id ? null : g))}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedEditGuardian((current) => (current?.id === g.id ? null : g));
+                          }}
                           type="button"
                         >
                           {selectedEditGuardian?.id === g.id ? 'Selected ✓' : 'Select'}
