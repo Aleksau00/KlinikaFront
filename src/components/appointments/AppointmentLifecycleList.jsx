@@ -3,7 +3,7 @@ import { formatAppointmentReference, formatAppointmentType } from '../../lib/dis
 
 function AppointmentLifecycleList({ appointments, actionAppointmentId, onCheckIn, onCancel, onNoShow }) {
   return (
-    <div className="data-list data-list-scroll">
+    <div className="data-list data-list-scroll appointments-list">
       {appointments.map((appointment) => (
         <article className="data-row" key={appointment.id}>
           <div>

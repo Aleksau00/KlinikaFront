@@ -172,7 +172,19 @@ function DoctorPatientsPanel({ session }) {
 
         <div className="data-list data-list-scroll" style={{ marginTop: '0.75rem' }}>
           {patients.map((patient) => (
-            <article className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`} key={patient.id}>
+            <article
+              className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`}
+              key={patient.id}
+              onClick={() => handleSelectPatient(patient)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handleSelectPatient(patient);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
               <div>
                 <strong>{patient.firstName} {patient.lastName}</strong>
                 <p>{patient.email || patient.phoneNumber || 'No contact details'}</p>
@@ -184,7 +196,10 @@ function DoctorPatientsPanel({ session }) {
               <div className="row-actions">
                 <button
                   className={selectedPatient?.id === patient.id ? 'primary-button' : 'ghost-button'}
-                  onClick={() => handleSelectPatient(patient)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleSelectPatient(patient);
+                  }}
                   type="button"
                 >
                   {selectedPatient?.id === patient.id ? 'Selected' : 'Select'}
@@ -203,7 +218,7 @@ function DoctorPatientsPanel({ session }) {
             {isLoadingPatientContext ? <p>Loading appointments...</p> : null}
             {!isLoadingPatientContext && pastAppointments.length === 0 ? <p className="muted-hint">No past appointments found.</p> : null}
             {!isLoadingPatientContext && pastAppointments.length > 0 ? (
-              <div className="data-list data-list-scroll">
+              <div className="data-list data-list-scroll doctor-past-appointments-list">
                 {pastAppointments.slice(0, 15).map((appointment) => (
                   <article className="data-row" key={appointment.id}>
                     <div>

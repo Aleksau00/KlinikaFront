@@ -8,6 +8,21 @@ import {
   useParams,
 } from 'react-router-dom';
 import {
+  Building2,
+  CalendarCheck2,
+  CalendarClock,
+  ClipboardList,
+  Hospital,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  ShieldCheck,
+  UserCircle2,
+  UserCog,
+  UserRound,
+  Users,
+} from 'lucide-react';
+import {
   fetchCurrentWorker,
   loginWorker,
 } from './lib/api';
@@ -219,18 +234,20 @@ function PortalRoute({ onLogout, onRefreshSession, session }) {
 function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session }) {
   const config = roleConfig[roleSlug];
   const navItems = getPortalNav(roleSlug);
+  const RoleIcon = roleIconBySlug[roleSlug] || LayoutDashboard;
 
   return (
     <main className="layout-shell">
       <section className="workspace-hero">
         <div>
           <p className="eyebrow">Signed In</p>
-          <h1>{config.label} portal.</h1>
+          <h1 className="workspace-title-row"><RoleIcon className="title-icon" /> {config.label} portal.</h1>
         </div>
 
         <div className="workspace-actions">
           <span className={`role-pill ${config.themeClass}`}>{session.role}</span>
           <button className="ghost-button" onClick={onLogout} type="button">
+            <LogOut className="button-icon" />
             Log out
           </button>
         </div>
@@ -239,24 +256,31 @@ function RoleWorkspace({ onLogout, onRefreshSession, roleSlug, section, session 
       <section className="portal-shell">
         <aside className="portal-sidebar">
           <div className={`sidebar-identity ${config.themeClass}`}>
-            <strong>{[session.worker?.firstName, session.worker?.lastName].filter(Boolean).join(' ') || session.email}</strong>
-            <span>{session.worker?.email || session.email}</span>
-            <small>{session.worker?.clinicName || 'No clinic assigned'}</small>
+            <strong className="identity-line"><UserRound className="identity-icon" /> {[session.worker?.firstName, session.worker?.lastName].filter(Boolean).join(' ') || session.email}</strong>
+            <span className="identity-line"><Mail className="identity-icon" /> {session.worker?.email || session.email}</span>
+            <small className="identity-line"><Building2 className="identity-icon" /> {session.worker?.clinicName || 'No clinic assigned'}</small>
           </div>
 
           <nav className="portal-nav">
-            {navItems.map((item) => (
-              <NavLink
-                className={({ isActive }) => `portal-nav-link${isActive ? ' is-active' : ''}`}
-                end={item.key === 'overview'}
-                key={item.key}
-                onClick={() => playUiFeedbackSound('tab')}
-                to={item.path}
-              >
-                <span>{item.label}</span>
-                <small>{item.description}</small>
-              </NavLink>
-            ))}
+            {navItems.map((item) => {
+              const NavIcon = navIconByKey[item.key] || LayoutDashboard;
+
+              return (
+                <NavLink
+                  className={({ isActive }) => `portal-nav-link${isActive ? ' is-active' : ''}`}
+                  end={item.key === 'overview'}
+                  key={item.key}
+                  onClick={() => playUiFeedbackSound('tab')}
+                  to={item.path}
+                >
+                  <span className="nav-link-title">
+                    <NavIcon aria-hidden="true" className="nav-icon" />
+                    {item.label}
+                  </span>
+                  <small>{item.description}</small>
+                </NavLink>
+              );
+            })}
           </nav>
         </aside>
 
@@ -368,6 +392,26 @@ function getPortalNav(roleSlug) {
 
   return items;
 }
+
+const navIconByKey = {
+  overview: LayoutDashboard,
+  account: UserCircle2,
+  staff: Users,
+  clinics: Hospital,
+  'desk-scheduling': CalendarClock,
+  'desk-patients': Users,
+  'desk-guardians': ShieldCheck,
+  'desk-appointments': ClipboardList,
+  'my-slots': CalendarClock,
+  'my-patients': UserCog,
+  'my-appointments': CalendarCheck2,
+};
+
+const roleIconBySlug = {
+  admin: Building2,
+  doctor: UserCog,
+  secretary: ClipboardList,
+};
 
 function formatDateTime(value) {
   if (!value) {

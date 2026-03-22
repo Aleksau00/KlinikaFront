@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { roleConfig } from '../../config/roles';
 import { formatGenderLabel } from '../../lib/display';
+import { KeyRound, ShieldCheck, UserRound } from 'lucide-react';
 
 function formatDate(value) {
   if (!value) return 'Unavailable';
@@ -24,24 +24,8 @@ function getRoleSpecificSummary(worker) {
   return 'Unavailable';
 }
 
-function AccountPanel({ onRefreshSession, roleSlug, session }) {
+function AccountPanel({ roleSlug, session }) {
   const config = roleConfig[roleSlug];
-  const [statusMessage, setStatusMessage] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  async function handleRefresh() {
-    setStatusMessage('');
-    setIsRefreshing(true);
-
-    try {
-      await onRefreshSession();
-      setStatusMessage('Account details refreshed from the backend.');
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Unable to refresh account details.');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }
 
   return (
     <div className="portal-stack">
@@ -49,21 +33,16 @@ function AccountPanel({ onRefreshSession, roleSlug, session }) {
         <div className="panel-heading-row">
           <div>
             <p className="eyebrow">My account</p>
-            <h2>Personal worker profile</h2>
+            <h2 className="panel-title"><UserRound className="panel-icon" /> Personal worker profile</h2>
           </div>
-          <button className="ghost-button" disabled={isRefreshing} onClick={handleRefresh} type="button">
-            {isRefreshing ? 'Refreshing...' : 'Refresh from backend'}
-          </button>
         </div>
         <p>This panel now reflects the richer worker payload returned by the backend for the authenticated user.</p>
       </article>
 
-      {statusMessage ? <p className="info-banner">{statusMessage}</p> : null}
-
       <div className="workspace-grid compact-grid secretary-grid">
         <article className="workspace-panel profile-panel">
           <p className="eyebrow">Profile</p>
-          <h2>Worker details</h2>
+          <h2 className="panel-title"><UserRound className="panel-icon" /> Worker details</h2>
           <dl className="profile-list">
             <div>
               <dt>First name</dt>
@@ -94,7 +73,7 @@ function AccountPanel({ onRefreshSession, roleSlug, session }) {
 
         <article className="workspace-panel secretary-card-regular">
           <p className="eyebrow">Role and assignment</p>
-          <h2>Access context</h2>
+          <h2 className="panel-title"><ShieldCheck className="panel-icon" /> Access context</h2>
           <dl className="profile-list">
             <div>
               <dt>Role</dt>
@@ -117,7 +96,7 @@ function AccountPanel({ onRefreshSession, roleSlug, session }) {
 
         <article className="workspace-panel workspace-panel-dark">
           <p className="eyebrow">Session</p>
-          <h2>Authentication details</h2>
+          <h2 className="panel-title"><KeyRound className="panel-icon" /> Authentication details</h2>
           <dl className="profile-list light-profile-list">
             <div>
               <dt>Portal</dt>

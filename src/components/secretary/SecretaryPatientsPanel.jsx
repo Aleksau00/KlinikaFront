@@ -9,6 +9,18 @@ import {
 import { initialPatientForm } from '../../config/roles';
 import { formatPatientProfileSummary } from '../../lib/display';
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
+import {
+  Link2,
+  Save,
+  Search,
+  ShieldPlus,
+  Unlink2,
+  UserCheck,
+  UserPlus,
+  UserRoundPen,
+  Users,
+  Inbox,
+} from 'lucide-react';
 
 function getAge(dateOfBirth) {
   if (!dateOfBirth) return null;
@@ -69,6 +81,8 @@ function SecretaryPatientsPanel({ session }) {
     let ignore = false;
 
     async function loadAllPatients() {
+      setIsSearchingPatients(true);
+
       try {
         const response = await searchPatients(session.token, '');
         if (!ignore) {
@@ -77,6 +91,10 @@ function SecretaryPatientsPanel({ session }) {
       } catch {
         if (!ignore) {
           setPatients([]);
+        }
+      } finally {
+        if (!ignore) {
+          setIsSearchingPatients(false);
         }
       }
     }
@@ -337,9 +355,10 @@ function SecretaryPatientsPanel({ session }) {
         <div className="panel-heading-row">
           <div>
             <p className="eyebrow">Patients workspace</p>
-            <h2>Patient records</h2>
+            <h2 className="panel-title"><Users className="panel-icon" /> Patient records</h2>
           </div>
           <button className="ghost-button" onClick={() => setShowCreatePatient((current) => !current)} type="button">
+            <UserPlus className="button-icon" />
             {showCreatePatient ? 'Close new patient' : 'New patient'}
           </button>
         </div>
@@ -351,7 +370,7 @@ function SecretaryPatientsPanel({ session }) {
 
       <article className="workspace-panel">
         <p className="eyebrow">Lookup</p>
-        <h2>Find patient</h2>
+        <h2 className="panel-title"><Search className="panel-icon" /> Find patient</h2>
         <form className="auth-form" onSubmit={handleSearchPatients}>
           <label>
             <span>Search term</span>
@@ -363,11 +382,20 @@ function SecretaryPatientsPanel({ session }) {
             />
           </label>
           <button className="primary-button" disabled={isSearchingPatients} type="submit">
+            <Search className="button-icon" />
             {isSearchingPatients ? 'Searching...' : 'Search patients'}
           </button>
         </form>
 
         <div className="data-list data-list-scroll">
+          {isSearchingPatients ? (
+            <div className="list-skeleton" aria-hidden="true">
+              <div className="skeleton-row" />
+              <div className="skeleton-row" />
+              <div className="skeleton-row" />
+              <div className="skeleton-row" />
+            </div>
+          ) : null}
           {patients.map((patient) => (
             <article
               className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`}
@@ -392,18 +420,26 @@ function SecretaryPatientsPanel({ session }) {
               </div>
               <div className="row-actions">
                 <button className={selectedPatient?.id === patient.id ? 'primary-button' : 'ghost-button'} onClick={(event) => { event.stopPropagation(); selectPatient(patient); }} type="button">
+                  <UserCheck className="button-icon" />
                   {selectedPatient?.id === patient.id ? 'Selected' : 'Select'}
                 </button>
               </div>
             </article>
           ))}
+          {!isSearchingPatients && patients.length === 0 ? (
+            <article className="empty-state-card" role="status">
+              <Inbox className="empty-state-icon" />
+              <h3>No patients found</h3>
+              <p>Try another search term or create a new patient record.</p>
+            </article>
+          ) : null}
         </div>
       </article>
 
       {showCreatePatient ? (
         <article className="workspace-panel">
           <p className="eyebrow">Patient registration</p>
-          <h2>Create new patient</h2>
+          <h2 className="panel-title"><UserPlus className="panel-icon" /> Create new patient</h2>
           <form className="admin-form" onSubmit={handleCreatePatient}>
             <div className="form-grid">
               <label>
@@ -473,6 +509,7 @@ function SecretaryPatientsPanel({ session }) {
                     }}
                     type="button"
                   >
+                    <ShieldPlus className="button-icon" />
                     {showCreateGuardian ? 'Search instead' : 'New guardian'}
                   </button>
                 </div>
@@ -540,6 +577,7 @@ function SecretaryPatientsPanel({ session }) {
                       onClick={handleCreateGuardian}
                       type="button"
                     >
+                      <ShieldPlus className="button-icon" />
                       {isCreatingGuardian ? 'Creating guardian...' : 'Create and link guardian'}
                     </button>
                   </div>
@@ -558,6 +596,7 @@ function SecretaryPatientsPanel({ session }) {
                         onClick={handleSearchGuardian}
                         type="button"
                       >
+                        <Search className="button-icon" />
                         {isSearchingGuardian ? 'Searching...' : 'Find guardian'}
                       </button>
                     </div>
@@ -590,6 +629,7 @@ function SecretaryPatientsPanel({ session }) {
                                 }}
                                 type="button"
                               >
+                                <UserCheck className="button-icon" />
                                 {selectedGuardian?.id === g.id ? 'Selected ✓' : 'Select'}
                               </button>
                             </div>
@@ -603,6 +643,7 @@ function SecretaryPatientsPanel({ session }) {
             ) : null}
 
             <button className="primary-button" disabled={isCreatingPatient || !canCreatePatient} type="submit">
+              <UserPlus className="button-icon" />
               {isCreatingPatient ? 'Creating patient...' : 'Create patient'}
             </button>
           </form>
@@ -612,7 +653,7 @@ function SecretaryPatientsPanel({ session }) {
       {selectedPatient ? (
         <article className="workspace-panel">
           <p className="eyebrow">Patient maintenance</p>
-          <h2>Edit selected patient</h2>
+          <h2 className="panel-title"><UserRoundPen className="panel-icon" /> Edit selected patient</h2>
           <form className="admin-form" onSubmit={handleUpdatePatient}>
             <div className="form-grid">
               <label>
@@ -679,6 +720,7 @@ function SecretaryPatientsPanel({ session }) {
                   onClick={handleSearchEditGuardian}
                   type="button"
                 >
+                  <Search className="button-icon" />
                   {isSearchingEditGuardian ? 'Searching...' : 'Find guardian'}
                 </button>
               </div>
@@ -712,6 +754,7 @@ function SecretaryPatientsPanel({ session }) {
                           }}
                           type="button"
                         >
+                          <Link2 className="button-icon" />
                           {selectedEditGuardian?.id === g.id ? 'Selected ✓' : 'Select'}
                         </button>
                       </div>
@@ -726,11 +769,11 @@ function SecretaryPatientsPanel({ session }) {
                   {selectedEditGuardian.firstName} {selectedEditGuardian.lastName}
                   {'  '}
                   <button
-                    className="ghost-button"
+                    className="ghost-button btn-sm"
                     onClick={() => setSelectedEditGuardian(null)}
-                    style={{ fontSize: '0.8rem', padding: '2px 10px' }}
                     type="button"
                   >
+                    <Unlink2 className="button-icon" />
                     Unlink
                   </button>
                 </p>
@@ -746,6 +789,7 @@ function SecretaryPatientsPanel({ session }) {
               disabled={isUpdatingPatient || (isEditPatientMinor && !selectedEditGuardian)}
               type="submit"
             >
+              <Save className="button-icon" />
               {isUpdatingPatient ? 'Saving...' : 'Save patient changes'}
             </button>
           </form>

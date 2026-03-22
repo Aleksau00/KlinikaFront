@@ -1061,7 +1061,7 @@ function DoctorAppointmentsPanel({ session }) {
         <article className="workspace-panel">
           <p className="eyebrow">Active</p>
           <h2>In progress &amp; scheduled</h2>
-          <div className="data-list data-list-scroll">
+          <div className="data-list data-list-scroll doctor-appointments-list">
             {activeAppointments.map((appt) => (
               <article className="data-row" key={appt.id}>
                 <div>
@@ -1123,9 +1123,21 @@ function DoctorAppointmentsPanel({ session }) {
         <article className="workspace-panel">
           <p className="eyebrow">Completed / cancelled</p>
           <h2>Past &amp; closed</h2>
-          <div className="data-list data-list-scroll">
+          <div className="data-list data-list-scroll doctor-appointments-list">
             {closedAppointments.map((appt) => (
-              <article className="data-row" key={appt.id}>
+              <article
+                className={`data-row${expandedAppointmentId === appt.id ? ' data-row-expanded' : ''}`}
+                key={appt.id}
+                onClick={() => toggleExpanded(appt.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleExpanded(appt.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
                 <div>
                   <strong>{String(appt.scheduledStartTime).slice(0, 5)} – {String(appt.scheduledEndTime).slice(0, 5)}</strong>
                   <p>Patient: {appt.patientName}</p>
@@ -1139,7 +1151,10 @@ function DoctorAppointmentsPanel({ session }) {
                 <div className="row-actions">
                   <button
                     className="ghost-button"
-                    onClick={() => toggleExpanded(appt.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleExpanded(appt.id);
+                    }}
                     type="button"
                   >
                     {expandedAppointmentId === appt.id ? 'Hide details' : 'View details'}

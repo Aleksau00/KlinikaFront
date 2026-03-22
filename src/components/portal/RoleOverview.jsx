@@ -1,4 +1,5 @@
 import { roleConfig } from '../../config/roles';
+import { BriefcaseMedical, ClipboardList, IdCard, ListChecks } from 'lucide-react';
 
 function RoleOverview({ roleSlug, session }) {
   const config = roleConfig[roleSlug];
@@ -24,14 +25,14 @@ function RoleOverview({ roleSlug, session }) {
     <div className="portal-stack">
       <article className={`workspace-panel ${config.themeClass}`}>
         <p className="eyebrow">Overview</p>
-        <h2>{content.title}</h2>
+        <h2 className="panel-title"><BriefcaseMedical className="panel-icon" /> {content.title}</h2>
         <p>{content.copy}</p>
       </article>
 
       <div className="workspace-grid compact-grid secretary-grid">
         <article className="workspace-panel profile-panel">
           <p className="eyebrow">Identity</p>
-          <h2>Signed-in worker</h2>
+          <h2 className="panel-title"><IdCard className="panel-icon" /> Signed-in worker</h2>
           <dl className="profile-list">
             <div>
               <dt>Name</dt>
@@ -50,7 +51,7 @@ function RoleOverview({ roleSlug, session }) {
 
         <article className="workspace-panel secretary-card-wide">
           <p className="eyebrow">Current scope</p>
-          <h2>{config.label} tasks</h2>
+          <h2 className="panel-title"><ListChecks className="panel-icon" /> {config.label} tasks</h2>
           <ul className="task-list">
             {config.tasks.map((task) => (
               <li key={task}>{task}</li>

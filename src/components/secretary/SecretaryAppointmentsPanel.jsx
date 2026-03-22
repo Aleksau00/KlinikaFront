@@ -14,6 +14,15 @@ import { formatAppointmentReference, formatPatientProfileSummary } from '../../l
 import { playUiFeedbackSound } from '../../lib/ui-feedback';
 import AppointmentLifecycleList from '../appointments/AppointmentLifecycleList';
 import CancelAppointmentDialog from '../appointments/CancelAppointmentDialog';
+import {
+  CalendarRange,
+  CalendarSearch,
+  Inbox,
+  Search,
+  Stethoscope,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 
 function SecretaryAppointmentsPanel({ session }) {
   const [patients, setPatients] = useState([]);
@@ -369,7 +378,7 @@ function SecretaryAppointmentsPanel({ session }) {
         <div className="panel-heading-row">
           <div>
             <p className="eyebrow">Desk appointments</p>
-            <h2>Appointment lookup and lifecycle</h2>
+            <h2 className="panel-title"><CalendarSearch className="panel-icon" /> Appointment lookup and lifecycle</h2>
           </div>
           <span className="status-chip">{doctors.length} doctors</span>
         </div>
@@ -384,7 +393,7 @@ function SecretaryAppointmentsPanel({ session }) {
           <div className="panel-heading-row">
             <div>
               <p className="eyebrow">Patient lookup</p>
-              <h2>Find patient appointments</h2>
+              <h2 className="panel-title"><Users className="panel-icon" /> Find patient appointments</h2>
             </div>
           </div>
           <p className="muted-hint">Recent patients are shown below even before search.</p>
@@ -400,11 +409,20 @@ function SecretaryAppointmentsPanel({ session }) {
               />
             </label>
             <button className="primary-button" disabled={isSearchingPatients} type="submit">
+              <Search className="button-icon" />
               {isSearchingPatients ? 'Searching...' : 'Search patients'}
             </button>
           </form>
 
           <div className="data-list data-list-scroll">
+            {isSearchingPatients ? (
+              <div className="list-skeleton" aria-hidden="true">
+                <div className="skeleton-row" />
+                <div className="skeleton-row" />
+                <div className="skeleton-row" />
+                <div className="skeleton-row" />
+              </div>
+            ) : null}
             {patients.map((patient) => (
               <article
                 className={`data-row${selectedPatient?.id === patient.id ? ' data-row-selected' : ''}`}
@@ -436,11 +454,19 @@ function SecretaryAppointmentsPanel({ session }) {
                     }}
                     type="button"
                   >
+                    <UserCheck className="button-icon" />
                     {selectedPatient?.id === patient.id ? 'Selected' : 'Select'}
                   </button>
                 </div>
               </article>
             ))}
+            {!isSearchingPatients && patients.length === 0 ? (
+              <article className="empty-state-card" role="status">
+                <Inbox className="empty-state-icon" />
+                <h3>No patients found</h3>
+                <p>Try another filter or adjust your patient search.</p>
+              </article>
+            ) : null}
           </div>
 
           <h3 className="subheading">Selected patient appointments</h3>
@@ -455,10 +481,16 @@ function SecretaryAppointmentsPanel({ session }) {
 
         <article className="workspace-panel secretary-card-wide">
           <p className="eyebrow">Doctor lookup</p>
-          <h2>Doctor appointment schedule</h2>
+          <h2 className="panel-title"><Stethoscope className="panel-icon" /> Doctor appointment schedule</h2>
           <p className="muted-hint">Choose a doctor from the list and set a date range.</p>
 
-          {isLoadingDoctors ? <p>Loading doctors...</p> : null}
+          {isLoadingDoctors ? (
+            <div className="list-skeleton" aria-hidden="true">
+              <div className="skeleton-row" />
+              <div className="skeleton-row" />
+              <div className="skeleton-row" />
+            </div>
+          ) : null}
 
           {!isLoadingDoctors ? (
             <>
@@ -518,12 +550,19 @@ function SecretaryAppointmentsPanel({ session }) {
                         }}
                         type="button"
                       >
+                        <UserCheck className="button-icon" />
                         {selectedDoctorId === String(doctor.id) ? 'Selected' : 'Select'}
                       </button>
                     </div>
                   </article>
                 ))}
-                {!filteredDoctors.length ? <p className="muted-hint">No doctors match this search.</p> : null}
+                {!filteredDoctors.length ? (
+                  <article className="empty-state-card" role="status">
+                    <Inbox className="empty-state-icon" />
+                    <h3>No doctors found</h3>
+                    <p>Try changing the search term or date range.</p>
+                  </article>
+                ) : null}
               </div>
             </>
           ) : null}
@@ -531,7 +570,7 @@ function SecretaryAppointmentsPanel({ session }) {
           {isLoadingDoctorAppointments ? <p>Loading doctor appointments...</p> : null}
           {!isLoadingDoctorAppointments ? (
             <div className="lookup-results-divider">
-              <h3>Doctor appointments</h3>
+              <h3 className="panel-title"><CalendarRange className="panel-icon" /> Doctor appointments</h3>
               <AppointmentLifecycleList
                 actionAppointmentId={actionAppointmentId}
                 appointments={doctorAppointments}
@@ -545,7 +584,7 @@ function SecretaryAppointmentsPanel({ session }) {
 
         <article className="workspace-panel secretary-card-wide">
           <p className="eyebrow">Clinic lookup</p>
-          <h2>Clinic schedule for day</h2>
+          <h2 className="panel-title"><CalendarRange className="panel-icon" /> Clinic schedule for day</h2>
           <div className="admin-form">
             <label>
               <span>Date</span>
